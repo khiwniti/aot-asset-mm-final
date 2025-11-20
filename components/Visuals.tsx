@@ -1,6 +1,10 @@
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { Map as MapIcon } from 'lucide-react';
+import WorkflowStatusManager from './WorkflowStatusManager';
+import TaskBoard from './TaskBoard';
+import LeaseManager from './LeaseManager';
+import MaintenanceTracker from './MaintenanceTracker';
 
 interface VisualProps {
   data: any;
@@ -199,9 +203,97 @@ export const ChartVisual = ({ data, theme = 'dark' }: VisualProps) => {
   );
 };
 
+export const WorkflowStatusManagerVisual = ({ data }: VisualProps) => {
+  return (
+    <div className="h-full w-full overflow-auto p-4">
+      <WorkflowStatusManager
+        workflows={data.workflows || []}
+        availableStatuses={data.availableStatuses || ['draft', 'active', 'paused', 'completed', 'archived']}
+        dragAndDropEnabled={data.dragAndDropEnabled !== false}
+        onStatusChange={(workflowId, newStatus) => {
+          console.log('Workflow status change:', { workflowId, newStatus });
+          // In a real implementation, this would update the backend
+        }}
+        onWorkflowClick={(workflow) => {
+          console.log('Workflow clicked:', workflow);
+          // In a real implementation, this would open workflow details
+        }}
+      />
+    </div>
+  );
+};
+
+export const TaskBoardVisual = ({ data }: VisualProps) => {
+  return (
+    <div className="h-full w-full overflow-auto p-4">
+      <TaskBoard
+        tasks={data.tasks || []}
+        columns={data.columns || []}
+        allowBulkOperations={data.allowBulkOperations !== false}
+        onStatusChange={(taskId, newStatus) => {
+          console.log('Task status change:', { taskId, newStatus });
+          // In a real implementation, this would update the backend
+        }}
+        onTaskClick={(task) => {
+          console.log('Task clicked:', task);
+          // In a real implementation, this would open task details
+        }}
+        onBulkSelect={(taskIds) => {
+          console.log('Tasks selected:', taskIds);
+          // In a real implementation, this would enable bulk operations
+        }}
+      />
+    </div>
+  );
+};
+
+export const LeaseManagerVisual = ({ data }: VisualProps) => {
+  return (
+    <div className="h-full w-full overflow-auto p-4">
+      <LeaseManager
+        leases={data.leases || []}
+        expiringThreshold={data.expiringThreshold || 60}
+        showRenewalAlerts={data.showRenewalAlerts !== false}
+        onLeaseClick={(lease) => {
+          console.log('Lease clicked:', lease);
+          // In a real implementation, this would open lease details
+        }}
+        onStatusChange={(leaseId, newStatus) => {
+          console.log('Lease status change:', { leaseId, newStatus });
+          // In a real implementation, this would update the backend
+        }}
+        onRenewalInitiated={(leaseId) => {
+          console.log('Lease renewal initiated:', leaseId);
+          // In a real implementation, this would start renewal workflow
+        }}
+      />
+    </div>
+  );
+};
+
+export const MaintenanceTrackerVisual = ({ data }: VisualProps) => {
+  return (
+    <div className="h-full w-full overflow-auto p-4">
+      <MaintenanceTracker
+        requests={data.requests || []}
+        sortBy={data.sortBy || 'priority'}
+        showCostOverrunAlerts={data.showCostOverrunAlerts !== false}
+        onRequestClick={(request) => {
+          console.log('Maintenance request clicked:', request);
+          // In a real implementation, this would open request details
+        }}
+        onStatusChange={(requestId, newStatus, actualCost) => {
+          console.log('Maintenance status change:', { requestId, newStatus, actualCost });
+          // In a real implementation, this would update the backend
+        }}
+      />
+    </div>
+  );
+};
+
 export const MapVisual = ({ data, theme = 'dark' }: VisualProps) => {
     const isDark = theme === 'dark';
-    
+
     return (
      <div className="h-full flex flex-col relative overflow-hidden rounded-xl">
         <div className="absolute inset-0 opacity-20">
@@ -214,16 +306,16 @@ export const MapVisual = ({ data, theme = 'dark' }: VisualProps) => {
               <rect width="100%" height="100%" fill={`url(#grid-${theme})`} />
            </svg>
         </div>
-        
+
         <div className="flex-1 relative z-10 flex items-center justify-center">
            <div className={`relative w-[80%] h-[80%] border rounded-xl backdrop-blur-sm p-4
               ${isDark ? 'border-slate-700/50 bg-slate-900/50' : 'border-slate-200/50 bg-white/50'}`}>
-              
+
               <div className={`w-full h-full rounded flex items-center justify-center ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
                  <MapIcon size={64} className="animate-pulse opacity-50" />
                  <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-sm font-mono">LOADING GEOSPATIAL DATA...</span>
               </div>
-              
+
               {/* Floating Stats */}
               <div className={`absolute top-4 right-4 p-3 rounded-lg border shadow-xl
                   ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
@@ -238,5 +330,5 @@ export const MapVisual = ({ data, theme = 'dark' }: VisualProps) => {
            </div>
         </div>
      </div>
-  );
+   );
 }
