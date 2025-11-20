@@ -285,19 +285,27 @@ const ChatInterface = ({ isFullPage = false, theme = 'light' }: ChatInterfacePro
 
               {/* Generative UI Rendering */}
               {msg.role === 'ai' && msg.uiPayload && (
-                 <div className="w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    {/* Link to view chart if it pushed to left pane */}
-                    {msg.uiPayload.type === 'chart' && (
-                       <button 
-                         onClick={() => setActiveVisual({ type: 'chart', title: msg.uiPayload?.data.title, data: msg.uiPayload?.data })}
-                         className="mt-1 text-[10px] text-blue-500 hover:underline flex items-center gap-1"
-                       >
-                         View Visualization ↗
-                       </button>
-                    )}
-                    {msg.uiPayload.type === 'approval' && <GenUIApproval payload={msg.uiPayload} msgId={msg.id} />}
-                    {msg.uiPayload.type === 'alert_list' && <GenUIAlerts data={msg.uiPayload.data} />}
-                    {msg.uiPayload.type === 'report' && <GenUIReport data={msg.uiPayload.data} />}
+              <div className="w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
+              {/* Link to view chart if it pushed to left pane */}
+              {msg.uiPayload.type === 'chart' && (
+                 <button
+                   onClick={() => setActiveVisual({ type: 'chart', title: msg.uiPayload?.data.title, data: msg.uiPayload?.data })}
+                   className="mt-1 text-[10px] text-blue-500 hover:underline flex items-center gap-1"
+                 >
+                   View Visualization ↗
+                 </button>
+              )}
+              {msg.uiPayload.type === 'entity_manager' && (
+                 <button
+                   onClick={() => setActiveVisual({ type: 'entity_manager', title: `${msg.uiPayload?.data.entityType} Management`, data: msg.uiPayload?.data })}
+                   className="mt-1 text-[10px] text-blue-500 hover:underline flex items-center gap-1"
+                 >
+                   View {msg.uiPayload?.data.entityType} Manager ↗
+                 </button>
+              )}
+              {msg.uiPayload.type === 'approval' && <GenUIApproval payload={msg.uiPayload} msgId={msg.id} />}
+              {msg.uiPayload.type === 'alert_list' && <GenUIAlerts data={msg.uiPayload.data} />}
+              {msg.uiPayload.type === 'report' && <GenUIReport data={msg.uiPayload.data} />}
                  </div>
               )}
             </div>

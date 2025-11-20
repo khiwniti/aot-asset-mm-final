@@ -11,14 +11,18 @@ import Reports from './pages/Reports';
 import AskAOT from './pages/AskAOT';
 import OperationsAnalytics from './pages/OperationsAnalytics';
 import Settings from './pages/Settings';
+import WorkflowManagement from './pages/WorkflowManagement';
+import TaskBoardPage from './pages/TaskBoardPage';
 import { ChatProvider } from './context/ChatContext';
 import ChatWidget from './components/ChatWidget';
 import InsightModal from './components/InsightModal';
+import DataInitializer from './components/DataInitializer';
 
 const App = () => {
   return (
     <HashRouter>
       <ChatProvider>
+        <DataInitializer />
         <div className="flex min-h-screen bg-[#f8f9fc]">
           <Sidebar />
           <div className="flex-1 ml-64 transition-all duration-300 relative">
@@ -33,6 +37,8 @@ const App = () => {
               <Route path="/operations" element={<OperationsAnalytics />} />
               <Route path="/ask-aot" element={<AskAOT />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/workflows" element={<WorkflowManagement />} />
+              <Route path="/tasks" element={<TaskBoardPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             

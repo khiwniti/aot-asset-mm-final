@@ -48,22 +48,24 @@ const Sidebar = () => {
       </div>
 
       <nav className="flex-1 px-3 py-4">
-        <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-        <NavItem to="/properties" icon={Home} label="Portfolio" />
-        <NavItem to="/financial" icon={DollarSign} label="Financial" />
-        <NavItem to="/leasing" icon={Users} label="Leasing" />
-        <NavItem to="/maintenance" icon={Wrench} label="Maintenance" />
-        <NavItem to="/reports" icon={FileText} label="Reports" />
-        
-        <div className="mt-6 mb-2 px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          AI Tools
-        </div>
-        <NavItem to="/ask-aot" icon={MessageSquare} label="Ask AOT" isSpecial={true} />
-        
-        <div className="mt-6 mb-2 px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          System
-        </div>
-        <NavItem to="/settings" icon={Settings} label="Settings" />
+       <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
+       <NavItem to="/properties" icon={Home} label="Portfolio" />
+       <NavItem to="/financial" icon={DollarSign} label="Financial" />
+       <NavItem to="/leasing" icon={Users} label="Leasing" />
+       <NavItem to="/maintenance" icon={Wrench} label="Maintenance" />
+       <NavItem to="/workflows" icon={BarChart3} label="Workflows" />
+       <NavItem to="/tasks" icon={CheckSquare} label="Tasks" />
+       <NavItem to="/reports" icon={FileText} label="Reports" />
+
+       <div className="mt-6 mb-2 px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+         AI Tools
+       </div>
+       <NavItem to="/ask-aot" icon={MessageSquare} label="Ask AOT" isSpecial={true} />
+
+       <div className="mt-6 mb-2 px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+         System
+       </div>
+       <NavItem to="/settings" icon={Settings} label="Settings" />
       </nav>
 
       <div className="p-4 border-t border-gray-100">

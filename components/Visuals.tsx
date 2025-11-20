@@ -1,6 +1,7 @@
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { Map as MapIcon } from 'lucide-react';
+import EntityManager from './EntityManager';
 
 interface VisualProps {
   data: any;
@@ -197,7 +198,22 @@ export const ChartVisual = ({ data, theme = 'dark' }: VisualProps) => {
        />
     </div>
   );
-};
+  };
+
+  export const EntityManagerVisual = ({ data, theme = 'dark' }: VisualProps) => {
+  return (
+   <div className="h-full w-full">
+     <EntityManager
+       entityType={data.entityType}
+       action={data.action}
+       view={data.view}
+       initialData={data.initialData}
+       filters={data.filters}
+       newStatus={data.newStatus}
+     />
+   </div>
+  );
+  };
 
 export const MapVisual = ({ data, theme = 'dark' }: VisualProps) => {
     const isDark = theme === 'dark';

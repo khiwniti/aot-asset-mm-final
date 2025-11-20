@@ -3,7 +3,7 @@ import { X, Sparkles, Globe, Map as MapIcon, Maximize2, Minimize2 } from 'lucide
 import { useChat } from '../context/ChatContext';
 import { useLocation } from 'react-router-dom';
 import ChatInterface from './ChatInterface';
-import { ChartVisual, MapVisual } from './Visuals';
+import { ChartVisual, MapVisual, EntityManagerVisual } from './Visuals';
 
 const ChatWidget = () => {
   const { isOpen, toggleChat, activeVisual } = useChat();
@@ -126,6 +126,7 @@ const ChatWidget = () => {
                   {activeVisual.type === 'chart' && <ChartVisualWrapper data={activeVisual.data} />}
                   {activeVisual.type === 'map' && <MapVisualWrapper data={activeVisual.data} />}
                   {activeVisual.type === 'kanban' && <div className="p-8 text-white text-center">Kanban Visualization Placeholder</div>}
+                  {activeVisual.type === 'entity_manager' && <EntityManagerVisual data={activeVisual.data} />}
                </div>
 
                {/* Collapse Visualizer Button */}
