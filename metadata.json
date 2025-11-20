@@ -1,0 +1,7 @@
+{
+  "name": "replicate AOT Asset Management",
+  "description": "A comprehensive Real Estate Asset Management System for tracking portfolios, financials, and AI-driven insights.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
