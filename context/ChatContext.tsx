@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useRef, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { Message, ActiveVisual, InsightData, VisualContext, VoiceStatus, ReportData } from '../types';
-import { generateAIResponse, generateInsight, APP_TOOLS } from '../services/geminiService';
-import { GoogleGenAI } from '@google/genai';
+import { generateAIResponse, generateInsight, APP_TOOLS } from '../services/githubModelsService';
 import { createPCM16Blob, decode, decodeAudioData } from '../services/audioUtils';
+import { VoiceService } from '../services/voiceService';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface ChatContextType {
@@ -85,14 +85,7 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>('disconnected');
   const [voiceError, setVoiceError] = useState<string | null>(null);
   
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const inputAudioContextRef = useRef<AudioContext | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const nextStartTimeRef = useRef<number>(0);
-  const audioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
-  const currentSessionRef = useRef<any>(null);
+  const voiceServiceRef = useRef<VoiceService | null>(null);
 
   const toggleChat = () => setIsOpen(prev => !prev);
 
@@ -185,45 +178,13 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
     }));
   };
 
-  // --- Voice Logic (Live API) ---
+  // --- Voice Logic (GitHub Models + Web Speech API) ---
 
   const stopVoiceSession = () => {
-    // Cleanup Input
-    if (processorRef.current) {
-        processorRef.current.disconnect();
-        processorRef.current.onaudioprocess = null;
-        processorRef.current = null;
+    if (voiceServiceRef.current) {
+      voiceServiceRef.current.stopListening();
     }
-    if (sourceRef.current) {
-        sourceRef.current.disconnect();
-        sourceRef.current = null;
-    }
-    if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-    }
-    if (inputAudioContextRef.current) {
-        inputAudioContextRef.current.close();
-        inputAudioContextRef.current = null;
-    }
-
-    // Cleanup Output
-    audioSourcesRef.current.forEach(source => {
-        try { source.stop(); } catch (e) {}
-    });
-    audioSourcesRef.current.clear();
-    if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-    }
-
-    // Close Session
-    if (currentSessionRef.current) {
-        currentSessionRef.current = null;
-    }
-
     setVoiceStatus('disconnected');
-    nextStartTimeRef.current = 0;
   };
 
   const toggleVoiceMode = async () => {
@@ -236,145 +197,99 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
     setVoiceError(null);
 
     try {
-        const apiKey = process.env.API_KEY;
-        if (!apiKey) throw new Error("API_KEY is missing");
+        // Initialize voice service
+        if (!voiceServiceRef.current) {
+            voiceServiceRef.current = new VoiceService();
+        }
 
-        // 1. Setup Audio Contexts
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        const inputCtx = new AudioContextClass({ sampleRate: 16000 });
-        const outputCtx = new AudioContextClass({ sampleRate: 24000 });
-        
-        inputAudioContextRef.current = inputCtx;
-        audioContextRef.current = outputCtx;
+        if (!voiceServiceRef.current.isSupported()) {
+            throw new Error('Speech recognition is not supported in this browser');
+        }
 
-        // 2. Get Microphone Stream
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        streamRef.current = stream;
-
-        // 3. Connect to Gemini Live
-        const client = new GoogleGenAI({ apiKey });
-        const sessionPromise = client.live.connect({
-            model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-            config: {
-                responseModalities: ['AUDIO'], 
-                speechConfig: {
-                    voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
-                },
-                systemInstruction: 'You are AOT Assistant. You are helpful and concise.',
-                tools: APP_TOOLS,
+        // Start listening with callbacks
+        voiceServiceRef.current.startListening({
+            onStart: () => {
+                setVoiceStatus('connected');
+                // Welcome message
+                setTimeout(() => {
+                    voiceServiceRef.current?.speak("Hello AOT, how can I help you?");
+                }, 500);
             },
-            callbacks: {
-                onopen: () => {
-                    setVoiceStatus('connected');
+            onTranscript: async (transcript) => {
+                console.log('Voice transcript:', transcript);
+                
+                // Process the transcript with GitHub Models
+                try {
+                    const response = await generateAIResponse(transcript, messages, { path: location.pathname });
                     
-                    // Start Streaming Input
-                    const source = inputCtx.createMediaStreamSource(stream);
-                    const processor = inputCtx.createScriptProcessor(4096, 1, 1);
-                    
-                    processor.onaudioprocess = (e) => {
-                        const inputData = e.inputBuffer.getChannelData(0);
-                        const pcmBlob = createPCM16Blob(inputData);
-                        sessionPromise.then(session => {
-                            session.sendRealtimeInput({ media: pcmBlob });
-                        });
+                    // Add user message to chat
+                    const userMsg: Message = {
+                        id: Date.now().toString(),
+                        role: 'user',
+                        content: transcript,
+                        timestamp: new Date()
                     };
-                    
-                    source.connect(processor);
-                    processor.connect(inputCtx.destination);
-                    
-                    sourceRef.current = source;
-                    processorRef.current = processor;
+                    setMessages(prev => [...prev, userMsg]);
 
-                    // Trigger Welcome Message
-                    sessionPromise.then(session => {
-                        session.send({ parts: [{ text: "Say exactly 'Hello AOT, how can I help you?'" }], turnComplete: true });
-                    });
-                },
-                onmessage: async (msg: any) => {
-                    // Handle Audio Output
-                    const audioData = msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-                    if (audioData) {
-                        const ctx = audioContextRef.current;
-                        if (!ctx) return;
+                    // Add AI response to chat
+                    const aiMsg: Message = {
+                        id: (Date.now() + 1).toString(),
+                        role: 'ai',
+                        content: response.text,
+                        uiPayload: response.uiPayload,
+                        timestamp: new Date()
+                    };
+                    setMessages(prev => [...prev, aiMsg]);
 
-                        // Resume audio context if it was suspended (browsers do this)
-                        if (ctx.state === 'suspended') {
-                            await ctx.resume();
+                    // Handle UI actions
+                    if (response.uiPayload) {
+                        const { type, data } = response.uiPayload;
+                        if (type === 'navigate' && data?.path) {
+                            navigate(data.path);
+                        } else if (type === 'chart' || type === 'map') {
+                            setActiveVisual({
+                                type: type,
+                                title: data.title || 'Analysis',
+                                data: data
+                            });
+                        } else if (type === 'report') {
+                            setGeneratedReports(prev => [data, ...prev]);
                         }
-
-                        nextStartTimeRef.current = Math.max(
-                            nextStartTimeRef.current,
-                            ctx.currentTime
-                        );
-
-                        const audioBuffer = await decodeAudioData(
-                            decode(audioData),
-                            ctx,
-                            24000
-                        );
-
-                        const source = ctx.createBufferSource();
-                        source.buffer = audioBuffer;
-                        source.connect(ctx.destination);
-                        
-                        source.onended = () => {
-                            audioSourcesRef.current.delete(source);
-                        };
-
-                        source.start(nextStartTimeRef.current);
-                        nextStartTimeRef.current += audioBuffer.duration;
-                        audioSourcesRef.current.add(source);
-                    }
-                    
-                    // Handle Tool Calls
-                    if (msg.toolCall) {
-                        // We can handle voice-triggered tool calls here in the future
-                        console.log("Voice Tool Call:", msg.toolCall);
-                        // For now, we just acknowledge it to the model
-                         sessionPromise.then(session => {
-                             session.sendToolResponse({
-                                 functionResponses: msg.toolCall.functionCalls.map((fc: any) => ({
-                                     id: fc.id,
-                                     name: fc.name,
-                                     response: { result: "Action executed." }
-                                 }))
-                             });
-                         });
                     }
 
-                    // Handle Interruption
-                    if (msg.serverContent?.interrupted) {
-                        audioSourcesRef.current.forEach(source => {
-                            try { source.stop(); } catch(e) {}
-                        });
-                        audioSourcesRef.current.clear();
-                        nextStartTimeRef.current = 0;
-                    }
-                },
-                onclose: () => {
-                    setVoiceStatus('disconnected');
-                    stopVoiceSession();
-                },
-                onerror: (e) => {
-                    console.error("Voice Error", e);
-                    setVoiceError("Connection Error");
-                    stopVoiceSession();
+                    // Speak the response
+                    await voiceServiceRef.current?.speak(response.text);
+                } catch (error) {
+                    console.error('Error processing voice input:', error);
+                    await voiceServiceRef.current?.speak("I'm sorry, I encountered an error processing your request.");
                 }
+            },
+            onResponse: (text) => {
+                console.log('Voice response:', text);
+            },
+            onError: (error) => {
+                console.error('Voice error:', error);
+                setVoiceError(error);
+                setVoiceStatus('disconnected');
+            },
+            onEnd: () => {
+                setVoiceStatus('disconnected');
             }
         });
-
-        currentSessionRef.current = await sessionPromise;
 
     } catch (error: any) {
         console.error("Failed to start voice session", error);
         setVoiceError(error.message || "Could not connect");
-        stopVoiceSession();
+        setVoiceStatus('disconnected');
     }
   };
 
   useEffect(() => {
     return () => {
         stopVoiceSession();
+        if (voiceServiceRef.current) {
+            voiceServiceRef.current.stopListening();
+        }
     };
   }, []);
 
