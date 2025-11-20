@@ -3,7 +3,11 @@ import { X, Sparkles, Globe, Map as MapIcon, Maximize2, Minimize2 } from 'lucide
 import { useChat } from '../context/ChatContext';
 import { useLocation } from 'react-router-dom';
 import ChatInterface from './ChatInterface';
-import { ChartVisual, MapVisual } from './Visuals';
+import { 
+  ChartVisual, MapVisual, 
+  WorkflowStatusManagerVisual, TaskBoardVisual, 
+  LeaseManagerVisual, MaintenanceTrackerVisual 
+} from './Visuals';
 
 const ChatWidget = () => {
   const { isOpen, toggleChat, activeVisual } = useChat();
@@ -123,9 +127,13 @@ const ChatWidget = () => {
                {/* Visualizer Content */}
                <div className="flex-1 relative z-10 h-full overflow-hidden">
                   {activeVisual.type === 'default' && <DefaultVisual />}
-                  {activeVisual.type === 'chart' && <ChartVisualWrapper data={activeVisual.data} />}
-                  {activeVisual.type === 'map' && <MapVisualWrapper data={activeVisual.data} />}
-                  {activeVisual.type === 'kanban' && <div className="p-8 text-white text-center">Kanban Visualization Placeholder</div>}
+                                     {activeVisual.type === 'chart' && <ChartVisualWrapper data={activeVisual.data} />}
+                                     {activeVisual.type === 'map' && <MapVisualWrapper data={activeVisual.data} />}
+                                     {activeVisual.type === 'kanban' && <div className="p-8 text-white text-center">Kanban Visualization Placeholder</div>}
+                                     {activeVisual.type === 'workflow_status_manager' && <WorkflowStatusManagerVisual data={activeVisual.data} />}
+                                     {activeVisual.type === 'task_board' && <TaskBoardVisual data={activeVisual.data} />}
+                                     {activeVisual.type === 'lease_manager' && <LeaseManagerVisual data={activeVisual.data} />}
+                                     {activeVisual.type === 'maintenance_tracker' && <MaintenanceTrackerVisual data={activeVisual.data} />}
                </div>
 
                {/* Collapse Visualizer Button */}

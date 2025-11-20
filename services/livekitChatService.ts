@@ -1,7 +1,8 @@
-import { Message, UIPayload, InsightData, MappingField } from '../types';
+import { Message, UIPayload, InsightData, MappingField, Workflow, Task, Lease, MaintenanceRequest } from '../types';
 import { APP_TOOLS, INSIGHT_SCHEMA } from './agent/tools';
 import { getSystemContext } from './agent/context';
 import { mcpService } from './mcpService';
+import { WORKFLOWS, TASKS, LEASES, MAINTENANCE_REQUESTS } from './mockData';
 
 interface AIResponse {
   text: string;
@@ -15,7 +16,7 @@ interface AIResponse {
 export { APP_TOOLS };
 
 /**
- * Mock implementation for text-based chat when not using voice
+ * Enhanced implementation for text-based chat with entity management support
  * In production, integrate with your LLM provider (OpenAI, Anthropic, etc.)
  */
 export const generateAIResponse = async (
@@ -31,10 +32,88 @@ export const generateAIResponse = async (
     const systemInstruction = getSystemContext(currentPath);
 
     // For LiveKit integration, the agent handles LLM calls
-    // This is a simplified fallback for text-based chat
+    // This is a simplified fallback for text-based chat with entity management
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const lowerMsg = userMessage.toLowerCase();
+
+    // Entity Management Commands - Workflows
+    if (lowerMsg.includes('workflow') && (lowerMsg.includes('create') || lowerMsg.includes('show'))) {
+      if (lowerMsg.includes('show') || lowerMsg.includes('list') || lowerMsg.includes('manage')) {
+        return {
+          text: 'Here is your workflow status manager with all current workflows.',
+          uiPayload: {
+            type: 'workflow_status_manager',
+            data: {
+              workflows: WORKFLOWS,
+              availableStatuses: ['draft', 'active', 'paused', 'completed', 'archived'],
+              dragAndDropEnabled: true
+            }
+          }
+        };
+      }
+    }
+
+    // Entity Management Commands - Tasks
+    if (lowerMsg.includes('task') && (lowerMsg.includes('create') || lowerMsg.includes('show') || lowerMsg.includes('board'))) {
+      if (lowerMsg.includes('show') || lowerMsg.includes('board') || lowerMsg.includes('kanban')) {
+        const columns = [
+          { id: 'todo', title: 'To Do', taskIds: TASKS.filter(t => t.status === 'todo').map(t => t.id) },
+          { id: 'in_progress', title: 'In Progress', taskIds: TASKS.filter(t => t.status === 'in_progress').map(t => t.id) },
+          { id: 'blocked', title: 'Blocked', taskIds: TASKS.filter(t => t.status === 'blocked').map(t => t.id) },
+          { id: 'completed', title: 'Completed', taskIds: TASKS.filter(t => t.status === 'completed').map(t => t.id) }
+        ];
+        
+        return {
+          text: 'Here is your Kanban task board with all current tasks.',
+          uiPayload: {
+            type: 'task_board',
+            data: {
+              tasks: TASKS,
+              columns,
+              allowBulkOperations: true
+            }
+          }
+        };
+      }
+    }
+
+    // Entity Management Commands - Leases
+    if (lowerMsg.includes('lease') && (lowerMsg.includes('create') || lowerMsg.includes('show') || lowerMsg.includes('manage'))) {
+      if (lowerMsg.includes('show') || lowerMsg.includes('manage') || lowerMsg.includes('expiring')) {
+        const showExpiringOnly = lowerMsg.includes('expiring');
+        const leasesToShow = showExpiringOnly ? LEASES.filter(l => l.status === 'expiring') : LEASES;
+        
+        return {
+          text: `Here is your lease manager${showExpiringOnly ? ' showing only expiring leases' : ''}.`,
+          uiPayload: {
+            type: 'lease_manager',
+            data: {
+              leases: leasesToShow,
+              expiringThreshold: 60,
+              showRenewalAlerts: true
+            }
+          }
+        };
+      }
+    }
+
+    // Entity Management Commands - Maintenance
+    if (lowerMsg.includes('maintenance') && (lowerMsg.includes('create') || lowerMsg.includes('show') || lowerMsg.includes('tracker'))) {
+      if (lowerMsg.includes('show') || lowerMsg.includes('tracker')) {
+        return {
+          text: 'Here is your maintenance request tracker.',
+          uiPayload: {
+            type: 'maintenance_tracker',
+            data: {
+              requests: MAINTENANCE_REQUESTS,
+              sortBy: 'priority',
+              showCostOverrunAlerts: true
+            }
+          }
+        };
+      }
+    }
 
     // Report generation mock
     if (lowerMsg.includes('report')) {
@@ -68,6 +147,8 @@ export const generateAIResponse = async (
       leasing: '/leasing',
       maintenance: '/maintenance',
       reports: '/reports',
+      workflows: '/workflows',
+      tasks: '/tasks',
     };
 
     const navIntent = Object.keys(PAGE_ROUTES).find(
@@ -99,8 +180,9 @@ export const generateAIResponse = async (
       };
     }
 
+    // Default response with entity management suggestions
     return {
-      text: 'Text-based chat is available. For advanced AI features, use voice mode with LiveKit Agent.',
+      text: 'I can help you manage workflows, tasks, leases, and maintenance requests. Try asking me to "show workflows", "show task board", "show lease manager", or "show maintenance tracker". For advanced AI features, use voice mode with LiveKit Agent.',
     };
   } catch (error) {
     console.error('Error in generateAIResponse:', error);

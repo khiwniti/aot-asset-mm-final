@@ -6,6 +6,11 @@ import {
 } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { UIPayload, ReportData } from '../types';
+import { 
+  ChartVisual, MapVisual, KanbanVisual, 
+  WorkflowStatusManagerVisual, TaskBoardVisual, 
+  LeaseManagerVisual, MaintenanceTrackerVisual 
+} from './Visuals';
 
 interface ChatInterfaceProps {
   isFullPage?: boolean;
@@ -22,6 +27,16 @@ const ChatInterface = ({ isFullPage = false, theme = 'light' }: ChatInterfacePro
 
   const isDark = theme === 'dark';
 
+  const getComponentTitle = (type: string) => {
+    switch (type) {
+      case 'workflow_status_manager': return 'Workflow Manager';
+      case 'task_board': return 'Task Board';
+      case 'lease_manager': return 'Lease Manager';
+      case 'maintenance_tracker': return 'Maintenance Tracker';
+      default: return 'Analysis';
+    }
+  };
+
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -33,14 +48,16 @@ const ChatInterface = ({ isFullPage = false, theme = 'light' }: ChatInterfacePro
     if (lastMsg?.role === 'ai' && lastMsg.uiPayload) {
        const { type, data } = lastMsg.uiPayload;
        
-       // If it's a Chart or Map, push to the main visualizer
-       if (type === 'chart' || type === 'map' || type === 'kanban') {
-          setActiveVisual({
-             type: type,
-             title: data.title || 'Analysis',
-             data: data
-          });
-       }
+       // If it's a Chart, Map, or Entity Management component, push to the main visualizer
+               if (type === 'chart' || type === 'map' || type === 'kanban' ||
+                   type === 'workflow_status_manager' || type === 'task_board' ||
+                   type === 'lease_manager' || type === 'maintenance_tracker') {
+                  setActiveVisual({
+                     type: type,
+                     title: data.title || getComponentTitle(type),
+                     data: data
+                  });
+               }
     }
   }, [messages, setActiveVisual]);
 
