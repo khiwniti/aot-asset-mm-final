@@ -119,7 +119,7 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
 
         if (type === 'navigate' && data?.path) {
           navigate(data.path);
-        } else if (type === 'chart' || type === 'map') {
+        } else if (type === 'chart' || type === 'map' || type === 'entity_manager') {
           // Auto-expand visualizer
           setActiveVisual({
             type: type,

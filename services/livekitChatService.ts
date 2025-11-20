@@ -36,6 +36,201 @@ export const generateAIResponse = async (
 
     const lowerMsg = userMessage.toLowerCase();
 
+    // Entity Management Commands
+    if (lowerMsg.includes('create workflow') || lowerMsg.includes('new workflow')) {
+      // Extract workflow details from natural language
+      const titleMatch = userMessage.match(/(?:create|new) workflow[:\s]+(.+?)(?:for|assign|due)/i);
+      const assigneeMatch = userMessage.match(/assign(?:ed)?\s+to\s+([^\s,]+)/i);
+      const dueDateMatch = userMessage.match(/due\s+(?:by|on)?\s+([^\s,]+)/i);
+      const priorityMatch = userMessage.match(/priority[:\s]+(\w+)/i);
+
+      if (titleMatch) {
+        return {
+          text: `I'll create a workflow for "${titleMatch[1].trim()}" with the specified details.`,
+          uiPayload: {
+            type: 'entity_manager',
+            data: {
+              entityType: 'workflow',
+              action: 'create',
+              initialData: {
+                title: titleMatch[1].trim(),
+                assignee: assigneeMatch ? assigneeMatch[1] : 'Unassigned',
+                dueDate: dueDateMatch ? dueDateMatch[1] : '',
+                priority: priorityMatch ? priorityMatch[1].toLowerCase() : 'medium'
+              }
+            }
+          }
+        };
+      }
+    }
+
+    if (lowerMsg.includes('create task') || lowerMsg.includes('new task')) {
+      const titleMatch = userMessage.match(/(?:create|new) task[:\s]+(.+?)(?:for|assign|due)/i);
+      const assigneeMatch = userMessage.match(/assign(?:ed)?\s+to\s+([^\s,]+)/i);
+      const dueDateMatch = userMessage.match(/due\s+(?:by|on)?\s+([^\s,]+)/i);
+
+      if (titleMatch) {
+        return {
+          text: `I'll create a task for "${titleMatch[1].trim()}" with the specified details.`,
+          uiPayload: {
+            type: 'entity_manager',
+            data: {
+              entityType: 'task',
+              action: 'create',
+              initialData: {
+                title: titleMatch[1].trim(),
+                assignee: assigneeMatch ? assigneeMatch[1] : 'Unassigned',
+                dueDate: dueDateMatch ? dueDateMatch[1] : ''
+              }
+            }
+          }
+        };
+      }
+    }
+
+    if (lowerMsg.includes('create maintenance') || lowerMsg.includes('new maintenance')) {
+      const descMatch = userMessage.match(/(?:create|new) maintenance[:\s]+(.+?)(?:for|at|priority)/i);
+      const propertyMatch = userMessage.match(/(?:for|at)\s+([^\s,]+)/i);
+      const priorityMatch = userMessage.match(/priority[:\s]+(\w+)/i);
+
+      if (descMatch) {
+        return {
+          text: `I'll create a maintenance request for "${descMatch[1].trim()}" with the specified details.`,
+          uiPayload: {
+            type: 'entity_manager',
+            data: {
+              entityType: 'maintenance',
+              action: 'create',
+              initialData: {
+                description: descMatch[1].trim(),
+                propertyId: propertyMatch ? propertyMatch[1] : 'Unknown',
+                priority: priorityMatch ? priorityMatch[1].toLowerCase() : 'medium'
+              }
+            }
+          }
+        };
+      }
+    }
+
+    // List/Query Commands
+    if (lowerMsg.includes('show') || lowerMsg.includes('list')) {
+      if (lowerMsg.includes('workflow')) {
+        return {
+          text: "Here are your current workflows:",
+          uiPayload: {
+            type: 'entity_manager',
+            data: {
+              entityType: 'workflow',
+              action: 'list',
+              view: 'kanban'
+            }
+          }
+        };
+      }
+
+      if (lowerMsg.includes('task')) {
+        return {
+          text: "Here are your current tasks:",
+          uiPayload: {
+            type: 'entity_manager',
+            data: {
+              entityType: 'task',
+              action: 'list',
+              view: 'kanban'
+            }
+          }
+        };
+      }
+
+      if (lowerMsg.includes('lease')) {
+        return {
+          text: "Here are your current leases:",
+          uiPayload: {
+            type: 'entity_manager',
+            data: {
+              entityType: 'lease',
+              action: 'list',
+              view: 'list'
+            }
+          }
+        };
+      }
+
+      if (lowerMsg.includes('maintenance')) {
+        return {
+          text: "Here are your current maintenance requests:",
+          uiPayload: {
+            type: 'entity_manager',
+            data: {
+              entityType: 'maintenance',
+              action: 'list',
+              view: 'list'
+            }
+          }
+        };
+      }
+    }
+
+    // Status update commands
+    if (lowerMsg.includes('mark') || lowerMsg.includes('update') || lowerMsg.includes('complete')) {
+      if (lowerMsg.includes('workflow') && lowerMsg.includes('complete')) {
+        return {
+          text: "I'll help you mark the workflow as completed. Please select which workflow to complete.",
+          uiPayload: {
+            type: 'entity_manager',
+            data: {
+              entityType: 'workflow',
+              action: 'status_update',
+              newStatus: 'completed'
+            }
+          }
+        };
+      }
+
+      if (lowerMsg.includes('task') && lowerMsg.includes('complete')) {
+        return {
+          text: "I'll help you mark the task as completed. Please select which task to complete.",
+          uiPayload: {
+            type: 'entity_manager',
+            data: {
+              entityType: 'task',
+              action: 'status_update',
+              newStatus: 'completed'
+            }
+          }
+        };
+      }
+    }
+
+    // Lease-specific commands
+    if (lowerMsg.includes('expiring') && lowerMsg.includes('lease')) {
+      return {
+        text: "Here are leases expiring in the next 60 days:",
+        uiPayload: {
+          type: 'entity_manager',
+          data: {
+            entityType: 'lease',
+            action: 'list',
+            filters: { expiring: true },
+            view: 'list'
+          }
+        }
+      };
+    }
+
+    if (lowerMsg.includes('renew') && lowerMsg.includes('lease')) {
+      return {
+        text: "I'll help you initiate a lease renewal. Please select which lease to renew.",
+        uiPayload: {
+          type: 'entity_manager',
+          data: {
+            entityType: 'lease',
+            action: 'renewal'
+          }
+        }
+      };
+    }
+
     // Report generation mock
     if (lowerMsg.includes('report')) {
       return {
@@ -100,7 +295,7 @@ export const generateAIResponse = async (
     }
 
     return {
-      text: 'Text-based chat is available. For advanced AI features, use voice mode with LiveKit Agent.',
+      text: 'I can help you manage workflows, tasks, leases, and maintenance requests. Try commands like:\n• "Create workflow for Q1 budget review"\n• "Show all tasks assigned to me"\n• "List expiring leases"\n• "Create urgent maintenance request for broken HVAC"',
     };
   } catch (error) {
     console.error('Error in generateAIResponse:', error);
