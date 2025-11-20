@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef, type DragEvent, type ChangeEvent } from 'react';
 import { 
   UploadCloud, FileSpreadsheet, CheckCircle2, AlertTriangle, 
   ArrowRight, RefreshCw, Database, Sparkles, FileText, Activity, Layout, X
@@ -11,13 +11,13 @@ const DataImporter = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = async (e: React.DragEvent | React.ChangeEvent) => {
+  const handleFileUpload = async (e: DragEvent | ChangeEvent) => {
     e.preventDefault();
     setIsDragOver(false);
 
     let file: File | null = null;
     if ('dataTransfer' in e) {
-        file = (e as React.DragEvent).dataTransfer.files[0];
+        file = (e as DragEvent).dataTransfer.files[0];
     } else if ('target' in e) {
         file = (e.target as HTMLInputElement).files?.[0] || null;
     }

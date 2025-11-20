@@ -1,8 +1,9 @@
 
-
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { Message, UIPayload, InsightData, MappingField } from "../types";
-import { PROPERTIES, REVENUE_DATA, ALERTS, WORK_ORDERS } from "./mockData";
+import { APP_TOOLS, INSIGHT_SCHEMA } from "./agent/tools";
+import { getSystemContext } from "./agent/context";
+import { mcpService } from "./mcpService";
 
 const apiKey = process.env.API_KEY;
 let ai: GoogleGenAI | null = null;
@@ -16,193 +17,8 @@ interface AIResponse {
   uiPayload?: UIPayload;
 }
 
-// --- Tool Definitions (Agent Constitution: Tool-Based Architecture) ---
-
-export const APP_TOOLS = [
-  {
-    functionDeclarations: [
-      {
-        name: "navigate",
-        description: "Navigate to a specific page in the application.",
-        parameters: {
-          type: Type.OBJECT,
-          properties: {
-            path: { type: Type.STRING, description: "The route path (e.g., /properties, /financial)" }
-          },
-          required: ["path"]
-        }
-      },
-      {
-        name: "render_chart",
-        description: "Display a chart to visualize data.",
-        parameters: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            chartType: { type: Type.STRING, enum: ["bar", "pie", "area"] },
-            series: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  value: { type: Type.NUMBER },
-                  value2: { type: Type.NUMBER }
-                }
-              }
-            }
-          },
-          required: ["title", "chartType", "series"]
-        }
-      },
-      {
-        name: "show_alerts",
-        description: "Display a list of alerts or risks.",
-        parameters: {
-          type: Type.OBJECT,
-          properties: {
-            items: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  title: { type: Type.STRING },
-                  severity: { type: Type.STRING, enum: ["critical", "warning", "info"] },
-                  location: { type: Type.STRING },
-                  description: { type: Type.STRING }
-                }
-              }
-            }
-          },
-          required: ["items"]
-        }
-      },
-      {
-        name: "request_approval",
-        description: "Request user approval for a maintenance or financial action.",
-        parameters: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            property: { type: Type.STRING },
-            cost: { type: Type.NUMBER },
-            vendor: { type: Type.STRING },
-            justification: { type: Type.STRING }
-          },
-          required: ["title", "property", "cost", "vendor", "justification"]
-        }
-      },
-      {
-        name: "generate_report",
-        description: "Generate a structured report (Financial, Operational, Market) with key metrics.",
-        parameters: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            type: { type: Type.STRING, enum: ["Financial", "Operational", "Market", "Compliance"] },
-            period: { type: Type.STRING, description: "e.g., November 2024, Q3 2024" },
-            summary: { type: Type.STRING, description: "A concise executive summary of the report." },
-            keyMetrics: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  label: { type: Type.STRING },
-                  value: { type: Type.STRING },
-                  trend: { type: Type.STRING, enum: ["up", "down", "neutral"] }
-                }
-              }
-            }
-          },
-          required: ["title", "type", "period", "summary", "keyMetrics"]
-        }
-      }
-    ]
-  }
-];
-
-const INSIGHT_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    title: { type: Type.STRING, description: "A concise, catchy title for the insight" },
-    explanation: { 
-      type: Type.ARRAY, 
-      items: { type: Type.STRING }, 
-      description: "2-3 bullet points explaining the data trend or issue" 
-    },
-    prediction: { type: Type.STRING, description: "A forward-looking prediction based on the data" },
-    suggestions: { 
-      type: Type.ARRAY, 
-      items: { type: Type.STRING }, 
-      description: "3 actionable suggestions for the user" 
-    },
-  },
-  required: ['title', 'explanation', 'prediction', 'suggestions'],
-};
-
-// --- Context Helpers ---
-
-const getSystemContext = (path: string): string => {
-  const baseContext = `You are AOT Assistant, an expert Real Estate Asset Management Agent.
-  You help the Asset Manager optimize revenue, reduce risk, and manage operations.
-  
-  Current Page: ${path}
-  
-  System Capabilities:
-  - You can navigate the app using the 'navigate' tool.
-  - You can visualize data using 'render_chart'.
-  - You can show alerts using 'show_alerts'.
-  - You can request approvals using 'request_approval'.
-  - You can generate reports using 'generate_report'.
-  
-  Routing Knowledge:
-  - Dashboard: /
-  - Portfolio: /properties
-  - Financial: /financial
-  - Leasing: /leasing
-  - Maintenance: /maintenance
-  - Reports: /reports
-  `;
-
-  let dataContext = "";
-  
-  if (path === '/' || path.includes('dashboard')) {
-    dataContext = `
-      Key Metrics: 
-      - Total Value: $102M
-      - Occupancy: 76%
-      - Revenue Trend: Rising, peak $3.5M in Dec.
-      - Critical Alerts: ${ALERTS.filter(a => a.severity === 'critical').length} active.
-    `;
-  } else if (path.includes('properties')) {
-    dataContext = `
-      Properties: ${PROPERTIES.map(p => `${p.name} (${p.type}, ${p.status})`).join(', ')}.
-    `;
-  } else if (path.includes('financial')) {
-    dataContext = `
-      Financials:
-      - Total Revenue: $2.4M
-      - Expenses: $980K
-      - Net Income: $1.42M
-    `;
-  } else if (path.includes('maintenance')) {
-    dataContext = `
-      Work Orders:
-      - Open: 12
-      - High Priority: ${WORK_ORDERS.filter(w => w.priority === 'High').map(w => w.title).join(', ')}.
-    `;
-  } else if (path.includes('reports')) {
-    dataContext = `
-      You are in the Reports center. You can help the user generate custom reports based on portfolio data.
-    `;
-  }
-
-  return `${baseContext}\n${dataContext}\n
-  RESPONSE GUIDELINES:
-  1. Use tools whenever possible to provide a rich UI experience.
-  2. Be concise and professional.
-  `;
-};
+// Export tools for use in ChatContext (Voice API)
+export { APP_TOOLS };
 
 // --- API Functions ---
 
@@ -218,7 +34,24 @@ export const generateAIResponse = async (
 
   try {
     const currentPath = context?.path || '/';
+    
+    // 1. Get Dynamic MCP Tools
+    const mcpToolsRaw = await mcpService.discoverTools();
+    const geminiMCPTools = mcpToolsRaw.map(mcpService.mapToGeminiTool);
+    
+    // 2. Merge Internal Tools with MCP Tools
+    // Note: Google SDK expects an array of Tool objects { functionDeclarations: [...] }
+    // We need to merge the arrays of functionDeclarations
+    const internalFunctionDecls = APP_TOOLS[0].functionDeclarations;
+    const allFunctionDeclarations = [...internalFunctionDecls, ...geminiMCPTools];
+    
+    const activeTools = [{ functionDeclarations: allFunctionDeclarations }];
+
+    // 3. Build Context
     const systemInstruction = getSystemContext(currentPath);
+    
+    // Append MCP Context hint
+    const systemWithMCP = `${systemInstruction}\n\nConnected Tools: You have access to external tools via MCP (Model Context Protocol). Use them when the user asks for external market data, zoning laws, or competitor analysis.`;
 
     const contents = history.map(msg => ({
       role: msg.role === 'ai' ? 'model' : 'user',
@@ -230,12 +63,13 @@ export const generateAIResponse = async (
       parts: [{ text: userMessage }]
     });
 
+    // 4. Call Model
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: contents,
       config: {
-        systemInstruction: systemInstruction,
-        tools: APP_TOOLS, // Agent Constitution: Tool-Based Architecture
+        systemInstruction: systemWithMCP,
+        tools: activeTools, 
         temperature: 0.7,
       }
     });
@@ -244,35 +78,60 @@ export const generateAIResponse = async (
     let text = candidate?.content?.parts?.map(p => p.text).join('') || "";
     let uiPayload: UIPayload | undefined;
 
-    // 2. Handle Tool Calls (Generative UI)
+    // 5. Handle Tool Calls (Internal vs MCP)
     const functionCalls = candidate?.content?.parts?.filter(p => p.functionCall).map(p => p.functionCall);
     
     if (functionCalls && functionCalls.length > 0) {
       const call = functionCalls[0]; // Handle primary tool call
+      
       if (call && call.name) {
-         // Map tools to UIPayload
-         if (call.name === 'navigate') {
-            uiPayload = { type: 'navigate', data: call.args };
-         } else if (call.name === 'render_chart') {
-            uiPayload = { type: 'chart', data: call.args };
-         } else if (call.name === 'show_alerts') {
-            uiPayload = { type: 'alert_list', data: call.args['items'] || [] };
-         } else if (call.name === 'request_approval') {
-            uiPayload = { type: 'approval', status: 'pending', data: call.args };
-         } else if (call.name === 'generate_report') {
-            uiPayload = { 
-              type: 'report', 
-              data: {
-                ...call.args,
-                id: `RPT-${Date.now().toString().slice(-6)}`,
-                generatedAt: new Date().toISOString()
-              }
-            };
-         }
-         
-         // Add a text fallback if model didn't generate text
-         if (!text) {
-             text = `I've generated the ${call.name.replace(/_/g, ' ')} you requested.`;
+         // Check if it is an MCP Tool
+         const isMCPTool = geminiMCPTools.some(t => t.name === call.name);
+
+         if (isMCPTool) {
+           // Execute MCP Tool
+           const result = await mcpService.executeTool(call.name, call.args);
+           
+           // Since this is a single-turn implementation for simplicity, we append the result to the text
+           // In a multi-turn setup, we would send this back to Gemini.
+           // For this demo, we format it as a text response or a special UI payload.
+           
+           text = `I consulted the external MCP server (${call.name}).\n\nResult:\n${JSON.stringify(result, null, 2)}`;
+           
+           // Optional: You could create a generic "Data View" UI payload for MCP results
+           uiPayload = { 
+             type: 'alert_list', // Reusing alert list to show key-value pairs nicely
+             data: Object.entries(result).map(([k, v]) => ({ 
+               title: k, 
+               description: typeof v === 'string' ? v : JSON.stringify(v), 
+               severity: 'info' 
+             })) 
+           };
+
+         } else {
+           // Execute Internal Tool (Generative UI)
+           if (call.name === 'navigate') {
+              uiPayload = { type: 'navigate', data: call.args };
+           } else if (call.name === 'render_chart') {
+              uiPayload = { type: 'chart', data: call.args };
+           } else if (call.name === 'show_alerts') {
+              uiPayload = { type: 'alert_list', data: call.args['items'] || [] };
+           } else if (call.name === 'request_approval') {
+              uiPayload = { type: 'approval', status: 'pending', data: call.args };
+           } else if (call.name === 'generate_report') {
+              uiPayload = { 
+                type: 'report', 
+                data: {
+                  ...call.args,
+                  id: `RPT-${Date.now().toString().slice(-6)}`,
+                  generatedAt: new Date().toISOString()
+                }
+              };
+           }
+           
+           if (!text) {
+               text = `I've generated the ${call.name.replace(/_/g, ' ')} you requested.`;
+           }
          }
       }
     }
@@ -303,7 +162,7 @@ export const generateInsight = async (prompt: string): Promise<InsightData> => {
        }],
        config: {
          responseMimeType: 'application/json',
-         responseSchema: INSIGHT_SCHEMA,
+         responseSchema: INSIGHT_SCHEMA, // Imported from agent/tools.ts
          thinkingConfig: { thinkingBudget: 32768 }
        }
      });

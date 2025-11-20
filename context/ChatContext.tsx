@@ -1,6 +1,4 @@
-
-import { createContext, useContext, useState, useRef, useEffect } from 'react';
-import React from 'react'; // Import React for types
+import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from 'react';
 import { Message, ActiveVisual, InsightData, VisualContext, VoiceStatus, ReportData } from '../types';
 import { generateAIResponse, generateInsight, APP_TOOLS } from '../services/geminiService';
 import { GoogleGenAI, Modality } from '@google/genai';
@@ -37,7 +35,7 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-export const ChatProvider = ({ children }: { children?: React.ReactNode }) => {
+export const ChatProvider = ({ children }: { children?: ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
 

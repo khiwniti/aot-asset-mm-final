@@ -1,5 +1,3 @@
-
-
 export interface Property {
   id: string;
   name: string;
@@ -136,4 +134,20 @@ export interface ImportJob {
   uploadDate: string;
   status: 'uploading' | 'analyzing' | 'mapping' | 'ready' | 'completed' | 'error';
   mappings: MappingField[];
+}
+
+// --- MCP (Model Context Protocol) Types ---
+
+export interface MCPServer {
+  id: string;
+  name: string;
+  url: string;
+  status: 'connected' | 'disconnected' | 'error';
+  capabilities: string[];
+}
+
+export interface MCPTool {
+  name: string;
+  description: string;
+  inputSchema: any;
 }

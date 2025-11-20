@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { 
@@ -22,12 +22,6 @@ import { KPIS, REVENUE_DATA, ALERTS, PROPERTY_TYPE_DISTRIBUTION, ACTIVITIES, TAS
 import { generateAIResponse } from '../services/geminiService';
 import { Task } from '../types';
 
-const Card = ({ children, className = '' }: { children?: any; className?: string }) => (
-  <div className={`bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow ${className}`}>
-    {children}
-  </div>
-);
-
 const Dashboard = () => {
   const [insights, setInsights] = useState({ portfolio: '', revenue: '' });
   const [tasks, setTasks] = useState<Task[]>(TASKS);
@@ -47,7 +41,7 @@ const Dashboard = () => {
   }, []);
 
   // --- Task Management Logic ---
-  const handleAddTask = (e: React.FormEvent) => {
+  const handleAddTask = (e: FormEvent) => {
     e.preventDefault();
     if (!newTask.trim()) return;
     
@@ -190,29 +184,61 @@ const Dashboard = () => {
         {/* KPI Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {KPIS.map((kpi, index) => (
-            <div key={index} className={`rounded-xl p-6 shadow-sm border transition-transform hover:-translate-y-1 cursor-pointer relative group ${index === 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-200'}`}>
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                 <AIAssistButton 
-                    prompt={`Analyze the trend for ${kpi.label} which is currently ${kpi.value}.`} 
-                    className={index === 0 ? "text-blue-200 hover:text-white hover:bg-blue-500" : ""}
-                 />
+            <div 
+              key={index} 
+              className={`
+                rounded-2xl p-6 border transition-all duration-500 ease-out cursor-pointer relative group overflow-hidden
+                hover:-translate-y-2 hover:shadow-2xl hover:shadow-blue-100
+                ${index === 0 
+                  ? 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white border-transparent shadow-lg shadow-blue-200' 
+                  : 'bg-white border-slate-100 hover:border-blue-100'}
+              `}
+            >
+              {/* Hover Gradient Overlay for white cards */}
+              {index !== 0 && (
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              )}
+              
+              <div className="relative z-10">
+                <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-x-2 group-hover:translate-x-0">
+                   <AIAssistButton 
+                      prompt={`Analyze the trend for ${kpi.label} which is currently ${kpi.value}.`} 
+                      className={index === 0 ? "text-blue-200 hover:text-white hover:bg-white/20" : ""}
+                   />
+                </div>
+                
+                <div className="flex justify-between items-start mb-6">
+                  <span className={`text-sm font-semibold tracking-wide ${index === 0 ? 'text-blue-100' : 'text-slate-500'}`}>{kpi.label}</span>
+                </div>
+                
+                <div className="mb-3 flex items-baseline gap-2">
+                  <span className="text-4xl font-extrabold tracking-tight">{kpi.value}</span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <div className={`
+                    flex items-center justify-center w-6 h-6 rounded-full transition-transform duration-300 group-hover:scale-110
+                    ${index === 0 ? 'bg-white/20 backdrop-blur-sm text-white' : (kpi.isPositive ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600')}
+                  `}>
+                    {kpi.isPositive ? (
+                      <ArrowUpRight size={14} strokeWidth={2.5} />
+                    ) : (
+                      <ArrowDownRight size={14} strokeWidth={2.5} />
+                    )}
+                  </div>
+                  <span className={`text-sm font-medium ${index === 0 ? 'text-blue-50' : (kpi.isPositive ? 'text-green-600' : 'text-red-600')}`}>
+                    {Math.abs(kpi.trend)}% {kpi.trendLabel}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between items-start mb-4">
-                <span className={`text-sm font-medium ${index === 0 ? 'text-blue-100' : 'text-slate-500'}`}>{kpi.label}</span>
-              </div>
-              <div className="mb-2">
-                <span className="text-3xl font-bold tracking-tight">{kpi.value}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {kpi.isPositive ? (
-                  <ArrowUpRight size={16} className={index === 0 ? 'text-green-300' : 'text-green-500'} />
-                ) : (
-                  <ArrowDownRight size={16} className={index === 0 ? 'text-red-300' : 'text-red-500'} />
-                )}
-                <span className={`text-xs font-medium ${index === 0 ? 'text-blue-100' : (kpi.isPositive ? 'text-green-600' : 'text-red-600')}`}>
-                  {kpi.trend > 0 ? 'Increased' : 'Decreased'} by {Math.abs(kpi.trend)}% {kpi.trendLabel}
-                </span>
-              </div>
+
+              {/* Decorative background elements */}
+              {index === 0 && (
+                <>
+                   <div className="absolute -bottom-12 -right-12 w-40 h-40 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
+                   <div className="absolute top-0 left-0 w-full h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+                </>
+              )}
             </div>
           ))}
         </div>
@@ -220,7 +246,7 @@ const Dashboard = () => {
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Portfolio Distribution */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col transition-all hover:shadow-md">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-slate-800">Portfolio Distribution</h3>
                 <AIAssistButton 
@@ -237,9 +263,9 @@ const Dashboard = () => {
                <ReactECharts option={portfolioOption} style={{height: '100%', width: '100%'}} />
             </div>
             {/* AI Explanation */}
-            <div className="mt-4 bg-blue-50/50 p-4 rounded-lg border border-blue-100 flex-1">
+            <div className="mt-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex-1 group">
               <div className="flex items-start gap-3 h-full">
-                 <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                 <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-110 transition-transform">
                     <Sparkles size={14} />
                  </div>
                  <div>
@@ -253,7 +279,7 @@ const Dashboard = () => {
           </div>
 
           {/* Revenue Trend */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col">
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col transition-all hover:shadow-md">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                   <h3 className="font-bold text-slate-800">Revenue Trend (12mo)</h3>
@@ -277,9 +303,9 @@ const Dashboard = () => {
                <ReactECharts option={revenueOption} style={{height: '100%', width: '100%'}} />
             </div>
             {/* AI Explanation */}
-            <div className="mt-6 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+            <div className="mt-6 bg-blue-50/50 p-4 rounded-xl border border-blue-100 group">
               <div className="flex items-start gap-3">
-                 <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                 <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-110 transition-transform">
                     <Sparkles size={14} />
                  </div>
                  <div>
@@ -296,7 +322,7 @@ const Dashboard = () => {
         {/* Bottom Section: Activity, Alerts & Tasks */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recent Activity Feed */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                  <h3 className="font-bold text-slate-800">Recent Activity</h3>
@@ -306,11 +332,11 @@ const Dashboard = () => {
             </div>
             <div className="space-y-6">
               {ACTIVITIES.map((activity, idx) => (
-                <div key={activity.id} className="flex gap-4 relative">
+                <div key={activity.id} className="flex gap-4 relative group">
                    {idx !== ACTIVITIES.length - 1 && (
-                     <div className="absolute left-[19px] top-8 bottom-[-24px] w-[2px] bg-slate-100"></div>
+                     <div className="absolute left-[19px] top-8 bottom-[-24px] w-[2px] bg-slate-100 group-hover:bg-blue-50 transition-colors"></div>
                    )}
-                   <div className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center z-10
+                   <div className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center z-10 transition-transform group-hover:scale-110
                      ${activity.type === 'lease' ? 'bg-green-100 text-green-600' :
                        activity.type === 'maintenance' ? 'bg-orange-100 text-orange-600' :
                        activity.type === 'financial' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600'
@@ -332,30 +358,30 @@ const Dashboard = () => {
           {/* Right Column Stack: Critical Alerts & Tasks */}
           <div className="space-y-6">
             {/* Critical Alerts */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-amber-400"></div>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-orange-500"></div>
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                     <h3 className="font-bold text-slate-800">Critical Alerts</h3>
                     <AIAssistButton prompt="Show me all critical and warning alerts using the alert list view." />
                 </div>
-                <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center animate-pulse">
                   <AlertCircle size={18} />
                 </div>
               </div>
 
               <div className="space-y-4 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
                 {ALERTS.filter(a => a.severity === 'critical' || a.severity === 'warning').map((alert) => (
-                  <div key={alert.id} className="p-4 rounded-lg bg-slate-50 border border-slate-100 hover:border-amber-200 transition-all">
+                  <div key={alert.id} className="p-4 rounded-xl bg-slate-50 border border-slate-100 hover:border-amber-200 transition-all cursor-pointer hover:shadow-sm group">
                     <div className="flex items-start gap-3">
-                        <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${alert.severity === 'critical' ? 'bg-red-500' : 'bg-amber-500'}`}></div>
+                        <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${alert.severity === 'critical' ? 'bg-red-500' : 'bg-amber-500'}`}></div>
                         <div>
-                          <h4 className="text-sm font-semibold text-slate-800">{alert.title}</h4>
+                          <h4 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{alert.title}</h4>
                           <p className="text-xs text-slate-500 mt-1 leading-relaxed">{alert.description}</p>
                         </div>
                     </div>
                     <div className="mt-3 flex justify-end">
-                        <button className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
+                        <button className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           Take Action <ChevronRight size={12} />
                         </button>
                     </div>
@@ -365,7 +391,7 @@ const Dashboard = () => {
             </div>
 
             {/* Simple Task Manager */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-slate-800">My Tasks</h3>
@@ -381,12 +407,12 @@ const Dashboard = () => {
                   value={newTask}
                   onChange={(e) => setNewTask(e.target.value)}
                   placeholder="Add new task..."
-                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                 />
                 <button 
                   type="submit"
                   disabled={!newTask.trim()}
-                  className="bg-blue-600 text-white rounded-lg w-9 h-9 flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-blue-600 text-white rounded-lg w-9 h-9 flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <Plus size={18} />
                 </button>
@@ -398,11 +424,11 @@ const Dashboard = () => {
                   <div 
                     key={task.id} 
                     className={`group flex items-center gap-3 p-2 rounded-lg border transition-all
-                      ${task.completed ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-100 hover:border-blue-200'}`}
+                      ${task.completed ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-100 hover:border-blue-200 hover:shadow-sm'}`}
                   >
                     <button 
                       onClick={() => toggleTask(task.id)}
-                      className={`w-5 h-5 rounded border flex items-center justify-center transition-colors
+                      className={`w-5 h-5 rounded border flex items-center justify-center transition-all duration-200
                         ${task.completed ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-slate-300 text-transparent hover:border-blue-400'}`}
                     >
                       <CheckSquare size={14} />

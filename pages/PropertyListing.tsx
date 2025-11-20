@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   List, 
   Grid, 
@@ -14,18 +14,85 @@ import {
 import Header from '../components/Header';
 import AIAssistButton from '../components/AIAssistButton';
 import { PROPERTIES } from '../services/mockData';
-import { Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
+import { Link, useNavigate } from 'react-router-dom';
+import mapboxgl from 'mapbox-gl';
 
-// Fix for default marker icons in Leaflet
-// @ts-ignore
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+// Set Mapbox Access Token
+// Note: In a real app, this should be in .env
+const MAPBOX_TOKEN = 'pk.eyJ1Ijoia2hpd25pdGkiLCJhIjoiY205eDFwMzl0MHY1YzJscjB3bm4xcnh5ZyJ9.ANGVE0tiA9NslBn8ft_9fQ';
+
+interface MapboxMapProps {
+  center: [number, number];
+  zoom: number;
+  markers: Array<{
+    id: string;
+    lat: number;
+    lng: number;
+    title: string;
+    subtitle?: string;
+    price?: string;
+  }>;
+}
+
+const MapboxMap = ({ center, zoom, markers }: MapboxMapProps) => {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!mapContainer.current) return;
+
+    mapboxgl.accessToken = MAPBOX_TOKEN;
+
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: [center[1], center[0]], // Mapbox uses [lng, lat]
+      zoom: zoom,
+    });
+
+    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    // Add markers
+    markers.forEach((marker) => {
+      const popupNode = document.createElement('div');
+      popupNode.className = 'min-w-[150px]';
+      popupNode.innerHTML = `
+        <div class="text-sm font-bold text-slate-800">${marker.title}</div>
+        <div class="text-xs text-slate-500 mb-1">${marker.subtitle || ''}</div>
+        <div class="text-xs font-bold text-blue-600">${marker.price || ''}</div>
+        <button id="btn-${marker.id}" class="text-[10px] text-blue-500 hover:underline block mt-2 cursor-pointer">
+          View Details
+        </button>
+      `;
+
+      // Add event listener for navigation button inside popup
+      const popup = new mapboxgl.Popup({ offset: 25 }).setDOMContent(popupNode);
+      
+      // Handle navigation click manually since innerHTML doesn't use React Router
+      popup.on('open', () => {
+        const btn = document.getElementById(`btn-${marker.id}`);
+        if (btn) {
+            btn.addEventListener('click', () => {
+                // Navigate programmatically
+                window.location.hash = `#/properties/${marker.id}`;
+            });
+        }
+      });
+
+      new mapboxgl.Marker()
+        .setLngLat([marker.lng, marker.lat])
+        .setPopup(popup)
+        .addTo(map.current!);
+    });
+
+    return () => {
+      map.current?.remove();
+    };
+  }, [center, zoom, markers]); // Re-initialize if core props change significantly
+
+  return <div ref={mapContainer} className="w-full h-full" />;
+};
 
 const PropertyListing = () => {
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'map'>('list');
@@ -47,6 +114,17 @@ const PropertyListing = () => {
     { id: 'P005', name: '632/21 Suvarnabhumi residence', district: 'Bang sao thong', lat: 13.6880, lng: 100.7480, price: '12,000', status: 'Active' },
     { id: 'P006', name: '632/21 Suvarnabhumi residence', district: 'Bang sao thong', lat: 13.6930, lng: 100.7580, price: '13,000', status: 'Active' },
   ];
+
+  // Convert Mock Data to Map Markers Format
+  // Using approximate coords near Bangkok for mock properties without lat/lng
+  const propertyMarkers = filteredProperties.map((p, idx) => ({
+    id: p.id,
+    title: p.name,
+    subtitle: p.address,
+    price: `฿${p.monthlyRent.toLocaleString()}/mo`,
+    lat: 13.7563 + (idx * 0.02 - 0.05),
+    lng: 100.5018 + (idx * 0.02 - 0.05)
+  }));
 
   const opportunities = [
     {
@@ -85,26 +163,11 @@ const PropertyListing = () => {
       case 'map':
         return (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 h-[600px] animate-in fade-in z-0 relative overflow-hidden">
-             <MapContainer center={[13.7563, 100.5018]} zoom={10} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              {filteredProperties.map((prop, idx) => (
-                <Marker key={prop.id} position={[13.7563 + (idx * 0.02 - 0.05), 100.5018 + (idx * 0.02 - 0.05)]}>
-                  <Popup>
-                    <div className="min-w-[150px]">
-                      <div className="text-sm font-bold text-slate-800">{prop.name}</div>
-                      <div className="text-xs text-slate-500 mb-1">{prop.address}</div>
-                      <div className="text-xs font-bold text-blue-600">฿{prop.monthlyRent.toLocaleString()}/mo</div>
-                      <Link to={`/properties/${prop.id}`} className="text-[10px] text-blue-500 hover:underline block mt-2">
-                        View Details
-                      </Link>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-            </MapContainer>
+             <MapboxMap 
+                center={[13.7563, 100.5018]} 
+                zoom={10} 
+                markers={propertyMarkers} 
+             />
           </div>
         );
       case 'grid':
@@ -326,21 +389,19 @@ const PropertyListing = () => {
                 </div>
                 <div className="flex flex-col lg:flex-row gap-6">
                    <div className="lg:flex-1 bg-white rounded-xl h-[500px] border border-slate-200 relative overflow-hidden shadow-sm z-0">
-                      <MapContainer center={[13.6900, 100.7501]} zoom={14} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
-                        <TileLayer
-                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        />
-                        {regionProperties.map((prop) => (
-                          <Marker key={prop.id} position={[prop.lat, prop.lng]}>
-                            <Popup>
-                              <div className="text-sm font-bold text-slate-800">{prop.name}</div>
-                              <div className="text-xs text-slate-500">{prop.district}</div>
-                              <div className="text-xs font-bold text-blue-600 mt-1">฿{prop.price}/mo</div>
-                            </Popup>
-                          </Marker>
-                        ))}
-                      </MapContainer>
+                      {/* Region Map View */}
+                      <MapboxMap 
+                          center={[13.6900, 100.7501]}
+                          zoom={13}
+                          markers={regionProperties.map(p => ({
+                              id: p.id,
+                              lat: p.lat,
+                              lng: p.lng,
+                              title: p.name,
+                              subtitle: p.district,
+                              price: `฿${p.price}/mo`
+                          }))}
+                      />
                    </div>
 
                    <div className="w-full lg:w-[380px] shrink-0 flex flex-col">
