@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from 'react';
 import { Message, ActiveVisual, InsightData, VisualContext, VoiceStatus, ReportData } from '../types';
-import { generateAIResponse, generateInsight, APP_TOOLS } from '../services/geminiService';
-import { GoogleGenAI, Modality } from '@google/genai';
-import { createPCM16Blob, decode, decodeAudioData } from '../services/audioUtils';
+import { generateAIResponse, generateInsight, APP_TOOLS } from '../services/livekitChatService';
+import { generateLiveKitToken } from '../services/livekitTokenService';
+import { Room, RemoteParticipant } from 'livekit-client';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface ChatContextType {
@@ -83,15 +83,9 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
   // --- Voice API State ---
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>('disconnected');
   const [voiceError, setVoiceError] = useState<string | null>(null);
-  
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const inputAudioContextRef = useRef<AudioContext | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const nextStartTimeRef = useRef<number>(0);
-  const audioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
-  const currentSessionRef = useRef<any>(null);
+
+  const roomRef = useRef<Room | null>(null);
+  const liveKitConnectPromiseRef = useRef<Promise<Room> | null>(null);
 
   const toggleChat = () => setIsOpen(prev => !prev);
 
@@ -184,174 +178,76 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
     }));
   };
 
-  // --- Voice Logic (Live API) ---
+  // --- Voice Logic (LiveKit) ---
 
-  const stopVoiceSession = () => {
-    // Cleanup Input
-    if (processorRef.current) {
-        processorRef.current.disconnect();
-        processorRef.current.onaudioprocess = null;
-        processorRef.current = null;
-    }
-    if (sourceRef.current) {
-        sourceRef.current.disconnect();
-        sourceRef.current = null;
-    }
-    if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-    }
-    if (inputAudioContextRef.current) {
-        inputAudioContextRef.current.close();
-        inputAudioContextRef.current = null;
-    }
-
-    // Cleanup Output
-    audioSourcesRef.current.forEach(source => {
-        try { source.stop(); } catch (e) {}
-    });
-    audioSourcesRef.current.clear();
-    if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-    }
-
-    // Close Session
-    if (currentSessionRef.current) {
-        currentSessionRef.current = null;
+  const stopVoiceSession = async () => {
+    try {
+      if (roomRef.current) {
+        await roomRef.current.disconnect();
+        roomRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error disconnecting from LiveKit:', error);
     }
 
     setVoiceStatus('disconnected');
-    nextStartTimeRef.current = 0;
   };
 
   const toggleVoiceMode = async () => {
     if (voiceStatus === 'connected' || voiceStatus === 'connecting') {
-        stopVoiceSession();
-        return;
+      await stopVoiceSession();
+      return;
     }
 
     setVoiceStatus('connecting');
     setVoiceError(null);
 
     try {
-        const apiKey = process.env.API_KEY;
-        if (!apiKey) throw new Error("API_KEY is missing");
+      // Get token from LiveKit
+      const { token, url } = await generateLiveKitToken();
 
-        // 1. Setup Audio Contexts
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        const inputCtx = new AudioContextClass({ sampleRate: 16000 });
-        const outputCtx = new AudioContextClass({ sampleRate: 24000 });
-        
-        inputAudioContextRef.current = inputCtx;
-        audioContextRef.current = outputCtx;
+      if (!token || !url) {
+        throw new Error('Failed to generate LiveKit token');
+      }
 
-        // 2. Get Microphone Stream
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        streamRef.current = stream;
+      // Dynamic import for browser context
+      const { connect } = await import('livekit-client');
 
-        // 3. Connect to Gemini Live
-        const client = new GoogleGenAI({ apiKey });
-        const sessionPromise = client.live.connect({
-            model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-            config: {
-                responseModalities: [Modality.AUDIO], 
-                speechConfig: {
-                    voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
-                },
-                systemInstruction: 'You are AOT Assistant. You are helpful, concise, and bilingual (English and Thai). The user will activate the session by saying "Hi AOT" or "สวัสดี AOT". Respond warmly in the corresponding language and offer help with asset management.',
-            },
-            callbacks: {
-                onopen: () => {
-                    setVoiceStatus('connected');
-                    
-                    // Stream audio from the microphone to the model.
-                    const source = inputCtx.createMediaStreamSource(stream);
-                    const processor = inputCtx.createScriptProcessor(4096, 1, 1);
-                    
-                    processor.onaudioprocess = (audioProcessingEvent) => {
-                        const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
-                        const pcmBlob = createPCM16Blob(inputData);
-                        sessionPromise.then(session => {
-                            session.sendRealtimeInput({ media: pcmBlob });
-                        });
-                    };
-                    
-                    source.connect(processor);
-                    processor.connect(inputCtx.destination);
-                    
-                    sourceRef.current = source;
-                    processorRef.current = processor;
-                },
-                onmessage: async (msg: any) => {
-                    // Handle Audio Output
-                    const audioData = msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-                    if (audioData) {
-                        const ctx = audioContextRef.current;
-                        if (!ctx) return;
+      // Connect to LiveKit room
+      const room = await connect(url, token, {
+        autoSubscribe: true,
+        audio: true,
+        video: false,
+        name: 'web-client',
+      });
 
-                        // Resume audio context if it was suspended (browsers do this)
-                        if (ctx.state === 'suspended') {
-                            await ctx.resume();
-                        }
+      roomRef.current = room;
+      setVoiceStatus('connected');
 
-                        nextStartTimeRef.current = Math.max(
-                            nextStartTimeRef.current,
-                            ctx.currentTime
-                        );
+      // Listen for disconnect
+      room.once('disconnected', () => {
+        setVoiceStatus('disconnected');
+        roomRef.current = null;
+      });
 
-                        const audioBuffer = await decodeAudioData(
-                            decode(audioData),
-                            ctx,
-                            24000
-                        );
-
-                        const source = ctx.createBufferSource();
-                        source.buffer = audioBuffer;
-                        source.connect(ctx.destination);
-                        
-                        source.onended = () => {
-                            audioSourcesRef.current.delete(source);
-                        };
-
-                        source.start(nextStartTimeRef.current);
-                        nextStartTimeRef.current += audioBuffer.duration;
-                        audioSourcesRef.current.add(source);
-                    }
-                    
-                    // Handle Interruption
-                    if (msg.serverContent?.interrupted) {
-                        audioSourcesRef.current.forEach(source => {
-                            try { source.stop(); } catch(e) {}
-                        });
-                        audioSourcesRef.current.clear();
-                        nextStartTimeRef.current = 0;
-                    }
-                },
-                onclose: () => {
-                    setVoiceStatus('disconnected');
-                    stopVoiceSession();
-                },
-                onerror: (e) => {
-                    console.error("Voice Error", e);
-                    setVoiceError("Network Error. Please try again.");
-                    stopVoiceSession();
-                }
-            }
-        });
-
-        currentSessionRef.current = await sessionPromise;
-
+      // Optional: Listen for room events (errors, etc.)
+      room.on('error', (error: Error) => {
+        console.error('LiveKit room error:', error);
+        setVoiceError(error.message || 'Connection error');
+      });
     } catch (error: any) {
-        console.error("Failed to start voice session", error);
-        setVoiceError(error.message || "Could not connect");
-        stopVoiceSession();
+      console.error('Failed to start voice session:', error);
+      setVoiceError(error.message || 'Could not connect to voice agent');
+      setVoiceStatus('disconnected');
     }
   };
 
   useEffect(() => {
     return () => {
-        stopVoiceSession();
+      // Cleanup on unmount
+      if (roomRef.current) {
+        roomRef.current.disconnect();
+      }
     };
   }, []);
 

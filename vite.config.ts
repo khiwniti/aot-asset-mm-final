@@ -11,8 +11,10 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.LIVEKIT_API_KEY': JSON.stringify(env.LIVEKIT_API_KEY),
+        'process.env.LIVEKIT_API_SECRET': JSON.stringify(env.LIVEKIT_API_SECRET),
+        'process.env.LIVEKIT_URL': JSON.stringify(env.LIVEKIT_URL),
+        'process.env.NEXT_PUBLIC_LIVEKIT_URL': JSON.stringify(env.LIVEKIT_URL)
       },
       resolve: {
         alias: {
