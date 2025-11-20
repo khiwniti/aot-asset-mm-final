@@ -1,6 +1,7 @@
 
-import { GoogleGenAI } from "@google/genai";
-import { Message, UIPayload, InsightData } from "../types";
+
+import { GoogleGenAI, Type } from "@google/genai";
+import { Message, UIPayload, InsightData, MappingField } from "../types";
 import { PROPERTIES, REVENUE_DATA, ALERTS, WORK_ORDERS } from "./mockData";
 
 const apiKey = process.env.API_KEY;
@@ -24,9 +25,9 @@ export const APP_TOOLS = [
         name: "navigate",
         description: "Navigate to a specific page in the application.",
         parameters: {
-          type: "OBJECT",
+          type: Type.OBJECT,
           properties: {
-            path: { type: "STRING", description: "The route path (e.g., /properties, /financial)" }
+            path: { type: Type.STRING, description: "The route path (e.g., /properties, /financial)" }
           },
           required: ["path"]
         }
@@ -35,18 +36,18 @@ export const APP_TOOLS = [
         name: "render_chart",
         description: "Display a chart to visualize data.",
         parameters: {
-          type: "OBJECT",
+          type: Type.OBJECT,
           properties: {
-            title: { type: "STRING" },
-            chartType: { type: "STRING", enum: ["bar", "pie", "area"] },
+            title: { type: Type.STRING },
+            chartType: { type: Type.STRING, enum: ["bar", "pie", "area"] },
             series: {
-              type: "ARRAY",
+              type: Type.ARRAY,
               items: {
-                type: "OBJECT",
+                type: Type.OBJECT,
                 properties: {
-                  name: { type: "STRING" },
-                  value: { type: "NUMBER" },
-                  value2: { type: "NUMBER" }
+                  name: { type: Type.STRING },
+                  value: { type: Type.NUMBER },
+                  value2: { type: Type.NUMBER }
                 }
               }
             }
@@ -58,17 +59,17 @@ export const APP_TOOLS = [
         name: "show_alerts",
         description: "Display a list of alerts or risks.",
         parameters: {
-          type: "OBJECT",
+          type: Type.OBJECT,
           properties: {
             items: {
-              type: "ARRAY",
+              type: Type.ARRAY,
               items: {
-                type: "OBJECT",
+                type: Type.OBJECT,
                 properties: {
-                  title: { type: "STRING" },
-                  severity: { type: "STRING", enum: ["critical", "warning", "info"] },
-                  location: { type: "STRING" },
-                  description: { type: "STRING" }
+                  title: { type: Type.STRING },
+                  severity: { type: Type.STRING, enum: ["critical", "warning", "info"] },
+                  location: { type: Type.STRING },
+                  description: { type: Type.STRING }
                 }
               }
             }
@@ -80,13 +81,13 @@ export const APP_TOOLS = [
         name: "request_approval",
         description: "Request user approval for a maintenance or financial action.",
         parameters: {
-          type: "OBJECT",
+          type: Type.OBJECT,
           properties: {
-            title: { type: "STRING" },
-            property: { type: "STRING" },
-            cost: { type: "NUMBER" },
-            vendor: { type: "STRING" },
-            justification: { type: "STRING" }
+            title: { type: Type.STRING },
+            property: { type: Type.STRING },
+            cost: { type: Type.NUMBER },
+            vendor: { type: Type.STRING },
+            justification: { type: Type.STRING }
           },
           required: ["title", "property", "cost", "vendor", "justification"]
         }
@@ -95,20 +96,20 @@ export const APP_TOOLS = [
         name: "generate_report",
         description: "Generate a structured report (Financial, Operational, Market) with key metrics.",
         parameters: {
-          type: "OBJECT",
+          type: Type.OBJECT,
           properties: {
-            title: { type: "STRING" },
-            type: { type: "STRING", enum: ["Financial", "Operational", "Market", "Compliance"] },
-            period: { type: "STRING", description: "e.g., November 2024, Q3 2024" },
-            summary: { type: "STRING", description: "A concise executive summary of the report." },
+            title: { type: Type.STRING },
+            type: { type: Type.STRING, enum: ["Financial", "Operational", "Market", "Compliance"] },
+            period: { type: Type.STRING, description: "e.g., November 2024, Q3 2024" },
+            summary: { type: Type.STRING, description: "A concise executive summary of the report." },
             keyMetrics: {
-              type: "ARRAY",
+              type: Type.ARRAY,
               items: {
-                type: "OBJECT",
+                type: Type.OBJECT,
                 properties: {
-                  label: { type: "STRING" },
-                  value: { type: "STRING" },
-                  trend: { type: "STRING", enum: ["up", "down", "neutral"] }
+                  label: { type: Type.STRING },
+                  value: { type: Type.STRING },
+                  trend: { type: Type.STRING, enum: ["up", "down", "neutral"] }
                 }
               }
             }
@@ -117,24 +118,22 @@ export const APP_TOOLS = [
         }
       }
     ]
-  },
-  // Deep Research Integration
-  { googleSearch: {} }
+  }
 ];
 
 const INSIGHT_SCHEMA = {
-  type: 'OBJECT',
+  type: Type.OBJECT,
   properties: {
-    title: { type: 'STRING', description: "A concise, catchy title for the insight" },
+    title: { type: Type.STRING, description: "A concise, catchy title for the insight" },
     explanation: { 
-      type: 'ARRAY', 
-      items: { type: 'STRING' }, 
+      type: Type.ARRAY, 
+      items: { type: Type.STRING }, 
       description: "2-3 bullet points explaining the data trend or issue" 
     },
-    prediction: { type: 'STRING', description: "A forward-looking prediction based on the data" },
+    prediction: { type: Type.STRING, description: "A forward-looking prediction based on the data" },
     suggestions: { 
-      type: 'ARRAY', 
-      items: { type: 'STRING' }, 
+      type: Type.ARRAY, 
+      items: { type: Type.STRING }, 
       description: "3 actionable suggestions for the user" 
     },
   },
@@ -155,7 +154,6 @@ const getSystemContext = (path: string): string => {
   - You can show alerts using 'show_alerts'.
   - You can request approvals using 'request_approval'.
   - You can generate reports using 'generate_report'.
-  - You can perform deep research using Google Search.
   
   Routing Knowledge:
   - Dashboard: /
@@ -203,7 +201,6 @@ const getSystemContext = (path: string): string => {
   RESPONSE GUIDELINES:
   1. Use tools whenever possible to provide a rich UI experience.
   2. Be concise and professional.
-  3. If researching external market data, use Google Search.
   `;
 };
 
@@ -246,18 +243,6 @@ export const generateAIResponse = async (
     const candidate = response.candidates?.[0];
     let text = candidate?.content?.parts?.map(p => p.text).join('') || "";
     let uiPayload: UIPayload | undefined;
-
-    // 1. Handle Grounding (Deep Research)
-    const groundingChunks = candidate?.groundingMetadata?.groundingChunks;
-    if (groundingChunks && groundingChunks.length > 0) {
-      const sources = groundingChunks
-        .map(c => c.web?.uri ? `[${c.web.title}](${c.web.uri})` : null)
-        .filter(Boolean);
-      
-      if (sources.length > 0) {
-        text += `\n\n**Sources:**\n${sources.join('\n')}`;
-      }
-    }
 
     // 2. Handle Tool Calls (Generative UI)
     const functionCalls = candidate?.content?.parts?.filter(p => p.functionCall).map(p => p.functionCall);
@@ -332,6 +317,54 @@ export const generateInsight = async (prompt: string): Promise<InsightData> => {
      console.error("Gemini Insight Error:", error);
      return simulateInsightResponse(prompt);
    }
+};
+
+export const analyzeDataMapping = async (headers: string[], fileName: string): Promise<MappingField[]> => {
+  // If using real API, we would send headers to Gemini to map against our known schema:
+  // Schema: { Property Name, Address, Monthly Rent, Occupancy Rate, Status }
+  
+  if (ai && apiKey) {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [{
+          role: 'user',
+          parts: [{ text: `
+            Act as a Data Engineer for a Real Estate system.
+            Map the following CSV columns: ${JSON.stringify(headers)}
+            To our Internal System Fields: [property_name, address, monthly_rent, occupancy, status, lease_start, tenant_name].
+            
+            Return a JSON array of objects with properties: sourceField, targetField, confidence (0-100), issue (optional string if confidence < 80).
+          ` }]
+        }],
+        config: {
+          responseMimeType: 'application/json'
+        }
+      });
+      
+      const text = response.text;
+      if (text) return JSON.parse(text);
+    } catch (e) {
+      console.error("Mapping Error", e);
+    }
+  }
+
+  // Fallback simulation logic
+  await new Promise(resolve => setTimeout(resolve, 1500));
+
+  return headers.map(header => {
+    const h = header.toLowerCase();
+    if (h.includes('name') || h.includes('property')) return { sourceField: header, targetField: 'property_name', confidence: 95, sampleValue: 'Suvarnabhumi Res.' };
+    if (h.includes('addr') || h.includes('location')) return { sourceField: header, targetField: 'address', confidence: 90, sampleValue: '612/21 King Kaew' };
+    if (h.includes('rent') || h.includes('price')) return { sourceField: header, targetField: 'monthly_rent', confidence: 85, sampleValue: '12000' };
+    if (h.includes('status')) return { sourceField: header, targetField: 'status', confidence: 92, sampleValue: 'Active' };
+    if (h.includes('occupancy')) return { sourceField: header, targetField: 'occupancy', confidence: 88, sampleValue: '95%' };
+    
+    // Low confidence example
+    if (h.includes('legacy') || h.includes('code')) return { sourceField: header, targetField: 'id', confidence: 40, sampleValue: 'LEG-001', issue: 'Format mismatch potential' };
+    
+    return { sourceField: header, targetField: 'unmapped', confidence: 0, sampleValue: '---', issue: 'No matching field found' };
+  });
 };
 
 // --- Fallback Mocks ---

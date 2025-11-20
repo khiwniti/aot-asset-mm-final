@@ -1,4 +1,4 @@
-import { Property, KPI, ChartData, Alert, Lease, WorkOrder, Activity } from '../types';
+import { Property, KPI, ChartData, Alert, Lease, WorkOrder, Activity, Task } from '../types';
 
 export const PROPERTIES: Property[] = [
   {
@@ -193,4 +193,10 @@ export const ACTIVITIES: Activity[] = [
   { id: 'act3', type: 'financial', description: 'Monthly rent roll generated', time: '5 hours ago' },
   { id: 'act4', type: 'system', description: 'System backup completed successfully', time: '1 day ago' },
   { id: 'act5', type: 'lease', description: 'Lease renewal notice sent to TechCorp', time: '1 day ago' },
+];
+
+export const TASKS: Task[] = [
+  { id: 't1', title: 'Review Q3 Financial Report', completed: false, priority: 'High' },
+  { id: 't2', title: 'Call TechCorp regarding renewal', completed: false, priority: 'Medium' },
+  { id: 't3', title: 'Approve Invoice #8492', completed: true, priority: 'Low' },
 ];

@@ -1,3 +1,4 @@
+
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
@@ -9,6 +10,7 @@ import Maintenance from './pages/Maintenance';
 import Reports from './pages/Reports';
 import AskAOT from './pages/AskAOT';
 import OperationsAnalytics from './pages/OperationsAnalytics';
+import Settings from './pages/Settings';
 import { ChatProvider } from './context/ChatContext';
 import ChatWidget from './components/ChatWidget';
 import InsightModal from './components/InsightModal';
@@ -30,6 +32,7 @@ const App = () => {
               <Route path="/reports" element={<Reports />} />
               <Route path="/operations" element={<OperationsAnalytics />} />
               <Route path="/ask-aot" element={<AskAOT />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { 
@@ -11,12 +11,16 @@ import {
   FileText,
   Wrench,
   DollarSign,
-  Sparkles
+  Sparkles,
+  CheckSquare,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import Header from '../components/Header';
 import AIAssistButton from '../components/AIAssistButton';
-import { KPIS, REVENUE_DATA, ALERTS, PROPERTY_TYPE_DISTRIBUTION, ACTIVITIES } from '../services/mockData';
+import { KPIS, REVENUE_DATA, ALERTS, PROPERTY_TYPE_DISTRIBUTION, ACTIVITIES, TASKS } from '../services/mockData';
 import { generateAIResponse } from '../services/geminiService';
+import { Task } from '../types';
 
 const Card = ({ children, className = '' }: { children?: any; className?: string }) => (
   <div className={`bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow ${className}`}>
@@ -26,6 +30,8 @@ const Card = ({ children, className = '' }: { children?: any; className?: string
 
 const Dashboard = () => {
   const [insights, setInsights] = useState({ portfolio: '', revenue: '' });
+  const [tasks, setTasks] = useState<Task[]>(TASKS);
+  const [newTask, setNewTask] = useState('');
 
   useEffect(() => {
     const fetchInsights = async () => {
@@ -39,6 +45,30 @@ const Dashboard = () => {
     };
     fetchInsights();
   }, []);
+
+  // --- Task Management Logic ---
+  const handleAddTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTask.trim()) return;
+    
+    const task: Task = {
+      id: Date.now().toString(),
+      title: newTask,
+      completed: false,
+      priority: 'Medium'
+    };
+    
+    setTasks([task, ...tasks]);
+    setNewTask('');
+  };
+
+  const toggleTask = (id: string) => {
+    setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+  };
+
+  const deleteTask = (id: string) => {
+    setTasks(tasks.filter(t => t.id !== id));
+  };
 
   // --- ECharts Options ---
 
@@ -263,7 +293,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Bottom Section: Activity & Alerts */}
+        {/* Bottom Section: Activity, Alerts & Tasks */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recent Activity Feed */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -299,38 +329,111 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Critical Alerts */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-amber-400"></div>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-slate-800">Critical Alerts</h3>
-                  <AIAssistButton prompt="Show me all critical and warning alerts using the alert list view." />
+          {/* Right Column Stack: Critical Alerts & Tasks */}
+          <div className="space-y-6">
+            {/* Critical Alerts */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-amber-400"></div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-800">Critical Alerts</h3>
+                    <AIAssistButton prompt="Show me all critical and warning alerts using the alert list view." />
+                </div>
+                <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                  <AlertCircle size={18} />
+                </div>
               </div>
-              <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
-                <AlertCircle size={18} />
+
+              <div className="space-y-4 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
+                {ALERTS.filter(a => a.severity === 'critical' || a.severity === 'warning').map((alert) => (
+                  <div key={alert.id} className="p-4 rounded-lg bg-slate-50 border border-slate-100 hover:border-amber-200 transition-all">
+                    <div className="flex items-start gap-3">
+                        <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${alert.severity === 'critical' ? 'bg-red-500' : 'bg-amber-500'}`}></div>
+                        <div>
+                          <h4 className="text-sm font-semibold text-slate-800">{alert.title}</h4>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">{alert.description}</p>
+                        </div>
+                    </div>
+                    <div className="mt-3 flex justify-end">
+                        <button className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
+                          Take Action <ChevronRight size={12} />
+                        </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="space-y-4">
-              {ALERTS.filter(a => a.severity === 'critical' || a.severity === 'warning').map((alert) => (
-                <div key={alert.id} className="p-4 rounded-lg bg-slate-50 border border-slate-100 hover:border-amber-200 transition-all">
-                   <div className="flex items-start gap-3">
-                      <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${alert.severity === 'critical' ? 'bg-red-500' : 'bg-amber-500'}`}></div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-slate-800">{alert.title}</h4>
-                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">{alert.description}</p>
-                      </div>
-                   </div>
-                   <div className="mt-3 flex justify-end">
-                      <button className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                        Take Action <ChevronRight size={12} />
-                      </button>
-                   </div>
+            {/* Simple Task Manager */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-slate-800">My Tasks</h3>
+                  <AIAssistButton prompt="Generate follow-up tasks based on the critical alerts and recent activity." />
                 </div>
-              ))}
+                <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-bold">{tasks.filter(t => !t.completed).length} open</span>
+              </div>
+
+              {/* Input */}
+              <form onSubmit={handleAddTask} className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={newTask}
+                  onChange={(e) => setNewTask(e.target.value)}
+                  placeholder="Add new task..."
+                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+                <button 
+                  type="submit"
+                  disabled={!newTask.trim()}
+                  className="bg-blue-600 text-white rounded-lg w-9 h-9 flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus size={18} />
+                </button>
+              </form>
+
+              {/* Task List */}
+              <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
+                {tasks.map(task => (
+                  <div 
+                    key={task.id} 
+                    className={`group flex items-center gap-3 p-2 rounded-lg border transition-all
+                      ${task.completed ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-100 hover:border-blue-200'}`}
+                  >
+                    <button 
+                      onClick={() => toggleTask(task.id)}
+                      className={`w-5 h-5 rounded border flex items-center justify-center transition-colors
+                        ${task.completed ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-slate-300 text-transparent hover:border-blue-400'}`}
+                    >
+                      <CheckSquare size={14} />
+                    </button>
+                    
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm truncate ${task.completed ? 'line-through text-slate-400' : 'text-slate-700 font-medium'}`}>
+                        {task.title}
+                      </p>
+                    </div>
+
+                    {!task.completed && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold
+                        ${task.priority === 'High' ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'}`}>
+                        {task.priority === 'High' ? 'HP' : ''}
+                      </span>
+                    )}
+                    
+                    <button 
+                      onClick={() => deleteTask(task.id)}
+                      className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                {tasks.length === 0 && <div className="text-center py-4 text-xs text-slate-400">No tasks pending. Great job!</div>}
+              </div>
             </div>
           </div>
+
         </div>
       </main>
     </div>

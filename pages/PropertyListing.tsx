@@ -4,8 +4,8 @@ import {
   Grid, 
   Map as MapIcon, 
   MoreVertical, 
-  ChevronLeft,
-  ChevronRight,
+  ChevronLeft, 
+  ChevronRight, 
   Search,
   ArrowRight,
   TrendingUp,
@@ -40,12 +40,12 @@ const PropertyListing = () => {
   const regions = ['Bangkok - BKK', 'Bangkok - DMK', 'Phuket - HKT', 'Hat Yai - HDY', 'Chiang Mai - CNX', 'Chiang Rai - CEI'];
 
   const regionProperties = [
-    { id: 1, name: '612/21 Suvarnabhumi residence', district: 'Bang sao thong', lat: 13.6900, lng: 100.7501, price: '12,000' },
-    { id: 2, name: '613/21 Airport side apartment', district: 'Samut Prakan', lat: 13.6950, lng: 100.7550, price: '15,000' },
-    { id: 3, name: '632/21 Airport side apartment', district: 'Samut Prakan', lat: 13.6850, lng: 100.7450, price: '14,500' },
-    { id: 4, name: '632/21 Suvarnabhumi residence', district: 'Bang sao thong', lat: 13.6920, lng: 100.7520, price: '12,500' },
-    { id: 5, name: '632/21 Suvarnabhumi residence', district: 'Bang sao thong', lat: 13.6880, lng: 100.7480, price: '12,000' },
-    { id: 6, name: '632/21 Suvarnabhumi residence', district: 'Bang sao thong', lat: 13.6930, lng: 100.7580, price: '13,000' },
+    { id: 'P001', name: '612/21 Suvarnabhumi residence', district: 'Bang sao thong', lat: 13.6900, lng: 100.7501, price: '12,000', status: 'Active' },
+    { id: 'P002', name: '613/21 Airport side apartment', district: 'Samut Prakan', lat: 13.6950, lng: 100.7550, price: '15,000', status: 'Pending' },
+    { id: 'P003', name: '632/21 Airport side apartment', district: 'Samut Prakan', lat: 13.6850, lng: 100.7450, price: '14,500', status: 'Active' },
+    { id: 'P004', name: '632/21 Suvarnabhumi residence', district: 'Bang sao thong', lat: 13.6920, lng: 100.7520, price: '12,500', status: 'Maintenance' },
+    { id: 'P005', name: '632/21 Suvarnabhumi residence', district: 'Bang sao thong', lat: 13.6880, lng: 100.7480, price: '12,000', status: 'Active' },
+    { id: 'P006', name: '632/21 Suvarnabhumi residence', district: 'Bang sao thong', lat: 13.6930, lng: 100.7580, price: '13,000', status: 'Active' },
   ];
 
   const opportunities = [
@@ -90,7 +90,6 @@ const PropertyListing = () => {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-              {/* Map markers for filtered properties */}
               {filteredProperties.map((prop, idx) => (
                 <Marker key={prop.id} position={[13.7563 + (idx * 0.02 - 0.05), 100.5018 + (idx * 0.02 - 0.05)]}>
                   <Popup>
