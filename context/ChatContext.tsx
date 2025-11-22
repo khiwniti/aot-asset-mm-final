@@ -1,9 +1,9 @@
 
-import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from 'react';
-import { Message, ActiveVisual, InsightData, VisualContext, VoiceStatus, ReportData } from '../types';
-import { generateAIResponse, generateInsight, LIVEKIT_CONFIG, generateLiveKitToken } from '../services/geminiService';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { Message, ActiveVisual, InsightData, VisualContext, ReportData } from '../types';
+import { generateAIResponse, generateInsight } from '../services/geminiService';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Room, RoomEvent, RemoteTrack, RemoteTrackPublication } from 'livekit-client';
+import { voiceService, VoiceStatus } from '../services/voiceService';
 
 interface ChatContextType {
   isOpen: boolean;
@@ -26,8 +26,9 @@ interface ChatContextType {
 
   // Voice State
   voiceStatus: VoiceStatus;
-  toggleVoiceMode: () => Promise<void>;
+  toggleVoiceMode: () => void;
   voiceError: string | null;
+  interimTranscript: string;
 
   // Shared Reports State
   generatedReports: ReportData[];
@@ -78,10 +79,9 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
     localStorage.setItem('generated_reports', JSON.stringify(generatedReports));
   }, [generatedReports]);
 
-  // --- Voice API State (LiveKit) ---
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>('disconnected');
   const [voiceError, setVoiceError] = useState<string | null>(null);
-  const roomRef = useRef<Room | null>(null);
+  const [interimTranscript, setInterimTranscript] = useState<string>('');
 
   const toggleChat = () => setIsOpen(prev => !prev);
 
@@ -108,6 +108,10 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
       };
       
       setMessages(prev => [...prev, aiMsg]);
+
+      if (voiceStatus === 'connected') {
+        voiceService.speak(response.text);
+      }
 
       if (response.uiPayload) {
         const { type, data } = response.uiPayload;
@@ -170,83 +174,43 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
     }));
   };
 
-  // --- Voice Logic (LiveKit) ---
-
-  const stopVoiceSession = async () => {
-    if (roomRef.current) {
-        await roomRef.current.disconnect();
-        roomRef.current = null;
-    }
-    setVoiceStatus('disconnected');
-  };
-
-  const toggleVoiceMode = async () => {
+  const toggleVoiceMode = () => {
     if (voiceStatus === 'connected' || voiceStatus === 'connecting') {
-        await stopVoiceSession();
-        return;
+      voiceService.stop();
+      setVoiceStatus('disconnected');
+      setInterimTranscript('');
+      return;
     }
 
-    setVoiceStatus('connecting');
-    setVoiceError(null);
-
-    try {
-        const identity = `user-${Math.floor(Math.random() * 10000)}`;
-        const roomName = "aot-voice-room";
-        
-        // Generate Client Side Token (Demo Only)
-        const token = await generateLiveKitToken(roomName, identity);
-
-        const room = new Room();
-        roomRef.current = room;
-
-        // Handle Remote Tracks (Audio from Agent)
-        room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant) => {
-            if (track.kind === 'audio') {
-                track.attach();
-            }
-        });
-
-        room.on(RoomEvent.Disconnected, () => {
-            setVoiceStatus('disconnected');
-        });
-
-        await room.connect(LIVEKIT_CONFIG.url, token);
-        console.log("Connected to LiveKit Room:", room.name);
-
-        // Publish Microphone
-        await room.localParticipant.setMicrophoneEnabled(true);
-
-        setVoiceStatus('connected');
-
-    } catch (error: any) {
-        console.error("Failed to start LiveKit session", error);
-        
-        // Robust error message extraction
-        let message = "Unknown connection error";
-        if (error instanceof Error) {
-            message = error.message;
-        } else if (typeof error === 'string') {
-            message = error;
-        } else if (typeof error === 'object' && error !== null) {
-            // Try to extract useful info if it's an object with reason or message
-            message = (error as any).message || (error as any).reason || JSON.stringify(error);
+    const started = voiceService.start(
+      (message) => {
+        if (message.isFinal) {
+          setInterimTranscript('');
+          sendMessage(message.text);
+        } else {
+          setInterimTranscript(message.text);
         }
-
-        // Clean up common ugly error strings containing "[object Object]"
-        if (message.includes("[object Object]")) {
-             message = "Voice service is currently unreachable. Please check connection.";
+      },
+      (status) => {
+        setVoiceStatus(status);
+        if (status === 'disconnected') {
+          setInterimTranscript('');
         }
+      },
+      (error) => {
+        setVoiceError(error);
+        setVoiceStatus('error');
+      }
+    );
 
-        setVoiceError(message);
-        stopVoiceSession();
+    if (!started) {
+      setVoiceStatus('error');
     }
   };
 
   useEffect(() => {
     return () => {
-        if (roomRef.current) {
-             roomRef.current.disconnect();
-        }
+      voiceService.stop();
     };
   }, []);
 
@@ -254,7 +218,7 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
     <ChatContext.Provider value={{
       isOpen, toggleChat, messages, sendMessage, openChatWithPrompt, isLoading, handleApproval,
       activeVisual, setActiveVisual, isInsightOpen, closeInsight, triggerInsight, insightData,
-      isInsightLoading, insightVisual, voiceStatus, toggleVoiceMode, voiceError,
+      isInsightLoading, insightVisual, voiceStatus, toggleVoiceMode, voiceError, interimTranscript,
       generatedReports
     }}>
       {children}

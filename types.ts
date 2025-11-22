@@ -117,8 +117,6 @@ export interface InsightData {
   suggestions: string[];
 }
 
-export type VoiceStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
-
 export interface MappingField {
   sourceField: string;
   targetField: string;
