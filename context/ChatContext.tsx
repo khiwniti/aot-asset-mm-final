@@ -1,9 +1,9 @@
+
 import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from 'react';
 import { Message, ActiveVisual, InsightData, VisualContext, VoiceStatus, ReportData } from '../types';
-import { generateAIResponse, generateInsight, APP_TOOLS } from '../services/livekitChatService';
-import { generateLiveKitToken } from '../services/livekitTokenService';
-import { Room, RemoteParticipant } from 'livekit-client';
+import { generateAIResponse, generateInsight, LIVEKIT_CONFIG, generateLiveKitToken } from '../services/geminiService';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Room, RoomEvent, RemoteTrack, RemoteTrackPublication } from 'livekit-client';
 
 interface ChatContextType {
   isOpen: boolean;
@@ -55,7 +55,6 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
     data: null
   });
 
-  // --- State Persistence (Agent Constitution: Cross-Tab State Persistence) ---
   const [messages, setMessages] = useState<Message[]>(() => {
     const saved = localStorage.getItem('chat_history');
     return saved ? JSON.parse(saved) : [{
@@ -66,7 +65,6 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
     }];
   });
 
-  // Generated Reports State
   const [generatedReports, setGeneratedReports] = useState<ReportData[]>(() => {
     const saved = localStorage.getItem('generated_reports');
     return saved ? JSON.parse(saved) : [];
@@ -80,12 +78,10 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
     localStorage.setItem('generated_reports', JSON.stringify(generatedReports));
   }, [generatedReports]);
 
-  // --- Voice API State ---
+  // --- Voice API State (LiveKit) ---
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>('disconnected');
   const [voiceError, setVoiceError] = useState<string | null>(null);
-
   const roomRef = useRef<Room | null>(null);
-  const liveKitConnectPromiseRef = useRef<Promise<Room> | null>(null);
 
   const toggleChat = () => setIsOpen(prev => !prev);
 
@@ -113,21 +109,17 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
       
       setMessages(prev => [...prev, aiMsg]);
 
-      // Handle Generative UI Actions
       if (response.uiPayload) {
         const { type, data } = response.uiPayload;
-
         if (type === 'navigate' && data?.path) {
           navigate(data.path);
         } else if (type === 'chart' || type === 'map') {
-          // Auto-expand visualizer
           setActiveVisual({
             type: type,
             title: data.title || 'Analysis',
             data: data
           });
         } else if (type === 'report') {
-           // Add to shared state
            setGeneratedReports(prev => [data, ...prev]);
         }
       }
@@ -181,73 +173,64 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
   // --- Voice Logic (LiveKit) ---
 
   const stopVoiceSession = async () => {
-    try {
-      if (roomRef.current) {
+    if (roomRef.current) {
         await roomRef.current.disconnect();
         roomRef.current = null;
-      }
-    } catch (error) {
-      console.error('Error disconnecting from LiveKit:', error);
     }
-
     setVoiceStatus('disconnected');
   };
 
   const toggleVoiceMode = async () => {
     if (voiceStatus === 'connected' || voiceStatus === 'connecting') {
-      await stopVoiceSession();
-      return;
+        await stopVoiceSession();
+        return;
     }
 
     setVoiceStatus('connecting');
     setVoiceError(null);
 
     try {
-      // Get token from LiveKit
-      const { token, url } = await generateLiveKitToken();
+        const identity = `user-${Math.floor(Math.random() * 10000)}`;
+        const roomName = "aot-voice-room";
+        
+        // Generate Client Side Token (Demo Only)
+        const token = await generateLiveKitToken(roomName, identity);
 
-      if (!token || !url) {
-        throw new Error('Failed to generate LiveKit token');
-      }
+        const room = new Room();
+        roomRef.current = room;
 
-      // Dynamic import for browser context
-      const { connect } = await import('livekit-client');
+        // Handle Remote Tracks (Audio from Agent)
+        room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant) => {
+            if (track.kind === 'audio') {
+                track.attach();
+            }
+        });
 
-      // Connect to LiveKit room
-      const room = await connect(url, token, {
-        autoSubscribe: true,
-        audio: true,
-        video: false,
-        name: 'web-client',
-      });
+        room.on(RoomEvent.Disconnected, () => {
+            setVoiceStatus('disconnected');
+        });
 
-      roomRef.current = room;
-      setVoiceStatus('connected');
+        await room.connect(LIVEKIT_CONFIG.url, token);
+        console.log("Connected to LiveKit Room:", room.name);
 
-      // Listen for disconnect
-      room.once('disconnected', () => {
-        setVoiceStatus('disconnected');
-        roomRef.current = null;
-      });
+        // Publish Microphone
+        // Fix: use setMicrophoneEnabled instead of enableMicrophone for livekit-client v2+
+        await room.localParticipant.setMicrophoneEnabled(true);
 
-      // Optional: Listen for room events (errors, etc.)
-      room.on('error', (error: Error) => {
-        console.error('LiveKit room error:', error);
-        setVoiceError(error.message || 'Connection error');
-      });
+        setVoiceStatus('connected');
+
     } catch (error: any) {
-      console.error('Failed to start voice session:', error);
-      setVoiceError(error.message || 'Could not connect to voice agent');
-      setVoiceStatus('disconnected');
+        console.error("Failed to start LiveKit session", error);
+        setVoiceError("Connection Failed: " + error.message);
+        stopVoiceSession();
     }
   };
 
   useEffect(() => {
     return () => {
-      // Cleanup on unmount
-      if (roomRef.current) {
-        roomRef.current.disconnect();
-      }
+        if (roomRef.current) {
+             roomRef.current.disconnect();
+        }
     };
   }, []);
 

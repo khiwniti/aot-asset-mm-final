@@ -1,5 +1,5 @@
 import { MCPServer, MCPTool } from '../types';
-import { Type } from "@google/genai";
+import { Type } from './agent/tools';
 
 // Initial State
 let connectedServers: MCPServer[] = [
@@ -90,40 +90,15 @@ export const mcpService = {
     return allTools;
   },
 
-  // Convert JSON Schema (Standard) to Gemini Type Enum (Google SDK)
-  // This is a simplified mapper. Real implementation requires deep recursion.
+  // Convert JSON Schema to OpenAI Function Format
   mapToGeminiTool: (tool: MCPTool) => {
-    const mapType = (jsonType: string): any => {
-      switch(jsonType) {
-        case 'string': return Type.STRING;
-        case 'number': return Type.NUMBER;
-        case 'integer': return Type.INTEGER;
-        case 'boolean': return Type.BOOLEAN;
-        case 'array': return Type.ARRAY;
-        case 'object': return Type.OBJECT;
-        default: return Type.STRING;
-      }
-    };
-
-    const properties: any = {};
-    if (tool.inputSchema.properties) {
-      Object.keys(tool.inputSchema.properties).forEach(key => {
-        const prop = tool.inputSchema.properties[key];
-        properties[key] = {
-          type: mapType(prop.type),
-          description: prop.description,
-          enum: prop.enum
-        };
-      });
-    }
-
+    // Since we are using OpenAI compatible format now, we can map directly
     return {
-      name: tool.name,
-      description: tool.description,
-      parameters: {
-        type: Type.OBJECT,
-        properties: properties,
-        required: tool.inputSchema.required || []
+      type: "function",
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.inputSchema
       }
     };
   },

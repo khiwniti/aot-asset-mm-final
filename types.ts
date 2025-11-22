@@ -38,22 +38,11 @@ export interface Alert {
 export interface Task {
   id: string;
   title: string;
-  description?: string;
-  status: 'todo' | 'in_progress' | 'blocked' | 'completed';
-  assignee?: string;
-  dueDate?: string;
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  parentWorkflowId?: string;
-  blockerReason?: string;
-  estimatedHours?: number;
-  actualHours?: number;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-  dependencies?: string[]; // Array of task IDs
+  completed: boolean;
+  priority: 'High' | 'Medium' | 'Low';
 }
 
-export type UIComponentType = 'chart' | 'approval' | 'alert_list' | 'property_card' | 'map' | 'kanban' | 'navigate' | 'report' | 'workflow_status_manager' | 'lease_manager' | 'task_board' | 'maintenance_tracker';
+export type UIComponentType = 'chart' | 'approval' | 'alert_list' | 'property_card' | 'map' | 'kanban' | 'navigate' | 'report';
 
 export interface ReportData {
   id: string;
@@ -96,39 +85,14 @@ export interface Lease {
   id: string;
   propertyId: string;
   propertyName: string;
-  tenantId: string;
-  tenantName: string;
+  tenant: string;
   startDate: string;
   endDate: string;
   rent: number;
-  status: 'draft' | 'active' | 'expiring' | 'expired' | 'renewed';
+  status: 'Active' | 'Expiring' | 'New';
   renewalStatus?: 'None' | 'Draft' | 'Sent' | 'Negotiating' | 'Signed';
-  securityDeposit?: number;
-  renewalTerms?: string;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
 }
 
-export interface MaintenanceRequest {
-  id: string;
-  propertyId: string;
-  propertyName: string;
-  description: string;
-  status: 'submitted' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  assignee?: string; // vendor or staff member
-  costEstimate?: number;
-  actualCost?: number;
-  scheduledDate?: string;
-  completionDate?: string;
-  category: string;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-}
-
-// Legacy WorkOrder interface for backward compatibility
 export interface WorkOrder {
   id: string;
   title: string;
@@ -139,24 +103,9 @@ export interface WorkOrder {
   category: string;
 }
 
-export interface Workflow {
-  id: string;
-  title: string;
-  description?: string;
-  status: 'draft' | 'active' | 'paused' | 'completed' | 'archived';
-  assignee?: string;
-  dueDate?: string;
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  propertyId?: string;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-  taskIds?: string[]; // Array of task IDs
-}
-
 export interface Activity {
   id: string;
-  type: 'lease' | 'maintenance' | 'financial' | 'system' | 'workflow' | 'task';
+  type: 'lease' | 'maintenance' | 'financial' | 'system';
   description: string;
   time: string;
 }
@@ -201,58 +150,4 @@ export interface MCPTool {
   name: string;
   description: string;
   inputSchema: any;
-}
-
-// Entity Management System Types
-export interface EntityAuditTrail {
-  id: string;
-  entityType: 'workflow' | 'lease' | 'task' | 'maintenance_request';
-  entityId: string;
-  timestamp: string;
-  userId: string;
-  operation: 'create' | 'update' | 'delete' | 'status_change';
-  fieldChanged?: string;
-  oldValue?: any;
-  newValue?: any;
-  details?: string;
-}
-
-export interface PendingOperation {
-  id: string;
-  entityType: 'workflow' | 'lease' | 'task' | 'maintenance_request';
-  entityId?: string;
-  operationType: 'create' | 'update' | 'delete' | 'status_change';
-  operationData: any; // JSON data
-  status: 'pending' | 'success' | 'failed';
-  retryCount: number;
-  createdTimestamp: string;
-  lastRetryTimestamp?: string;
-  errorMessage?: string;
-}
-
-// Entity Management UI Components
-export type EntityUIComponentType = UIComponentType | 'workflow_status_manager' | 'lease_manager' | 'task_board' | 'maintenance_tracker';
-
-export interface WorkflowStatusManagerData {
-  workflows: Workflow[];
-  availableStatuses: string[];
-  dragAndDropEnabled: boolean;
-}
-
-export interface LeaseManagerData {
-  leases: Lease[];
-  expiringThreshold: number; // days
-  showRenewalAlerts: boolean;
-}
-
-export interface TaskBoardData {
-  tasks: Task[];
-  columns: { id: string; title: string; taskIds: string[] }[];
-  allowBulkOperations: boolean;
-}
-
-export interface MaintenanceTrackerData {
-  requests: MaintenanceRequest[];
-  sortBy: 'priority' | 'date' | 'status';
-  showCostOverrunAlerts: boolean;
 }
