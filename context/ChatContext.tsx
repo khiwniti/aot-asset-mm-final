@@ -1,9 +1,9 @@
 
 import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from 'react';
 import { Message, ActiveVisual, InsightData, VisualContext, VoiceStatus, ReportData } from '../types';
-import { generateAIResponse, generateInsight } from '../services/geminiService';
+import { generateAIResponse, generateInsight, LIVEKIT_CONFIG, generateLiveKitToken } from '../services/geminiService';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { createSwiftService, SwiftVoiceService } from '../services/swiftService';
+import { Room, RoomEvent, RemoteTrack, RemoteTrackPublication } from 'livekit-client';
 
 interface ChatContextType {
   isOpen: boolean;
@@ -78,11 +78,10 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
     localStorage.setItem('generated_reports', JSON.stringify(generatedReports));
   }, [generatedReports]);
 
-  // --- Voice API State (Swift) ---
+  // --- Voice API State (LiveKit) ---
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>('disconnected');
   const [voiceError, setVoiceError] = useState<string | null>(null);
-  const swiftServiceRef = useRef<SwiftVoiceService | null>(null);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const roomRef = useRef<Room | null>(null);
 
   const toggleChat = () => setIsOpen(prev => !prev);
 
@@ -171,93 +170,83 @@ export const ChatProvider = ({ children }: { children?: ReactNode }) => {
     }));
   };
 
-  // --- Voice Logic (Swift) ---
+  // --- Voice Logic (LiveKit) ---
 
   const stopVoiceSession = async () => {
-    if (recordingIntervalRef.current) {
-      clearInterval(recordingIntervalRef.current);
-      recordingIntervalRef.current = null;
-    }
-
-    if (swiftServiceRef.current) {
-      swiftServiceRef.current.disconnect();
-      swiftServiceRef.current = null;
+    if (roomRef.current) {
+        await roomRef.current.disconnect();
+        roomRef.current = null;
     }
     setVoiceStatus('disconnected');
   };
 
-  const processVoiceRecording = async () => {
-    if (!swiftServiceRef.current || !swiftServiceRef.current.getIsRecording()) {
-      return;
-    }
-
-    try {
-      const audioBlob = await swiftServiceRef.current.stopRecording();
-
-      const result = await swiftServiceRef.current.sendVoiceMessage(audioBlob);
-
-      const userMsg: Message = {
-        id: Date.now().toString(),
-        role: 'user',
-        content: result.transcript,
-        timestamp: new Date()
-      };
-
-      const aiMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'ai',
-        content: result.response,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, userMsg, aiMsg]);
-
-      await swiftServiceRef.current.playAudioResponse(result.audioResponse);
-
-      swiftServiceRef.current.startRecording();
-    } catch (error: any) {
-      console.error('Voice processing error:', error);
-      setVoiceError(error.message);
-    }
-  };
-
   const toggleVoiceMode = async () => {
     if (voiceStatus === 'connected' || voiceStatus === 'connecting') {
-      await stopVoiceSession();
-      return;
+        await stopVoiceSession();
+        return;
     }
 
     setVoiceStatus('connecting');
     setVoiceError(null);
 
     try {
-      const swiftApiUrl = import.meta.env.VITE_SWIFT_API_URL || 'http://localhost:3000/api';
+        const identity = `user-${Math.floor(Math.random() * 10000)}`;
+        const roomName = "aot-voice-room";
+        
+        // Generate Client Side Token (Demo Only)
+        const token = await generateLiveKitToken(roomName, identity);
 
-      const service = createSwiftService(swiftApiUrl);
-      swiftServiceRef.current = service;
+        const room = new Room();
+        roomRef.current = room;
 
-      await service.initialize();
+        // Handle Remote Tracks (Audio from Agent)
+        room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant) => {
+            if (track.kind === 'audio') {
+                track.attach();
+            }
+        });
 
-      service.startRecording();
+        room.on(RoomEvent.Disconnected, () => {
+            setVoiceStatus('disconnected');
+        });
 
-      recordingIntervalRef.current = setInterval(processVoiceRecording, 3000);
+        await room.connect(LIVEKIT_CONFIG.url, token);
+        console.log("Connected to LiveKit Room:", room.name);
 
-      setVoiceStatus('connected');
+        // Publish Microphone
+        await room.localParticipant.setMicrophoneEnabled(true);
+
+        setVoiceStatus('connected');
+
     } catch (error: any) {
-      console.error('Failed to start Swift voice session', error);
-      setVoiceError('Connection Failed: ' + error.message);
-      await stopVoiceSession();
+        console.error("Failed to start LiveKit session", error);
+        
+        // Robust error message extraction
+        let message = "Unknown connection error";
+        if (error instanceof Error) {
+            message = error.message;
+        } else if (typeof error === 'string') {
+            message = error;
+        } else if (typeof error === 'object' && error !== null) {
+            // Try to extract useful info if it's an object with reason or message
+            message = (error as any).message || (error as any).reason || JSON.stringify(error);
+        }
+
+        // Clean up common ugly error strings containing "[object Object]"
+        if (message.includes("[object Object]")) {
+             message = "Voice service is currently unreachable. Please check connection.";
+        }
+
+        setVoiceError(message);
+        stopVoiceSession();
     }
   };
 
   useEffect(() => {
     return () => {
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-      }
-      if (swiftServiceRef.current) {
-        swiftServiceRef.current.disconnect();
-      }
+        if (roomRef.current) {
+             roomRef.current.disconnect();
+        }
     };
   }, []);
 

@@ -1,10 +1,12 @@
 
-export interface AudioBlob {
+// Removed import { Blob } from "@google/genai"; to prevent runtime errors
+
+export interface GenAIBlob {
   data: string;
   mimeType: string;
 }
 
-export function createPCM16Blob(data: Float32Array): AudioBlob {
+export function createPCM16Blob(data: Float32Array): GenAIBlob {
   const l = data.length;
   const int16 = new Int16Array(l);
   for (let i = 0; i < l; i++) {
@@ -12,7 +14,7 @@ export function createPCM16Blob(data: Float32Array): AudioBlob {
   }
   return {
     data: encode(new Uint8Array(int16.buffer)),
-    mimeType: 'audio/pcm;rate=24000',
+    mimeType: 'audio/pcm;rate=16000',
   };
 }
 
