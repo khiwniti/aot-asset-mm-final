@@ -61,7 +61,7 @@ const DataImporter = () => {
 
   const triggerAIAnalysis = async (headers: string[], fileName: string) => {
     try {
-      const mappings = await analyzeDataMapping(headers, fileName);
+      const mappings = await analyzeDataMapping(headers);
       setImportJob(prev => prev ? { ...prev, status: 'mapping', mappings } : null);
     } catch (error) {
       console.error("Mapping Error", error);
