@@ -9,12 +9,6 @@ const GITHUB_TOKEN = "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";
 const MODEL_NAME = "gpt-4o"; // GitHub Model name
 const API_ENDPOINT = "https://models.inference.ai.azure.com/chat/completions";
 
-// LiveKit Credentials
-export const LIVEKIT_CONFIG = {
-  url: "wss://bks-j93lugka.livekit.cloud",
-  apiKey: "APICsTFD3VC8EET",
-  apiSecret: "2xzwfXvcTuv1C0ppPPvWg0WFStyib0w3XuiePqJYh3r"
-};
 
 // --- TYPES ---
 
@@ -26,49 +20,6 @@ interface AIResponse {
 // Export tools for use in ChatContext
 export { APP_TOOLS };
 
-// --- LIVEKIT TOKEN GENERATOR (Client Side HACK for Demo) ---
-// WARNING: In production, tokens must be generated on a secure backend.
-async function generateLiveKitToken(roomName: string, participantName: string): Promise<string> {
-  const header = { alg: "HS256", typ: "JWT" };
-  const payload = {
-    iss: LIVEKIT_CONFIG.apiKey,
-    sub: participantName,
-    nbf: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
-    video: {
-      room: roomName,
-      roomJoin: true,
-      canPublish: true,
-      canSubscribe: true,
-    }
-  };
-
-  const base64Url = (str: string) => btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const encodedHeader = base64Url(JSON.stringify(header));
-  const encodedPayload = base64Url(JSON.stringify(payload));
-  
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw", 
-    enc.encode(LIVEKIT_CONFIG.apiSecret), 
-    { name: "HMAC", hash: "SHA-256" }, 
-    false, 
-    ["sign"]
-  );
-  
-  const signature = await crypto.subtle.sign(
-    "HMAC", 
-    key, 
-    enc.encode(`${encodedHeader}.${encodedPayload}`)
-  );
-  
-  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-  return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
-}
-
-export { generateLiveKitToken };
 
 
 // --- API Functions (Using GitHub Models) ---
