@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { PROPERTIES, LEASES } from '../services/mockData';
 import Header from '../components/Header';
 import AIAssistButton from '../components/AIAssistButton';
@@ -12,10 +12,12 @@ import {
   AlertTriangle, 
   DollarSign,
   Wrench,
+  ArrowLeft
 } from 'lucide-react';
 
 const PropertyDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const property = PROPERTIES.find(p => p.id === id) || PROPERTIES[0];
   const [activeTab, setActiveTab] = useState('overview');
   
@@ -180,6 +182,13 @@ const PropertyDetail = () => {
       <Header title={property.name} subtitle={`${property.address}, ${property.city}`} />
 
       <main className="p-8 max-w-[1600px] mx-auto">
+        <button
+          onClick={() => navigate('/properties')}
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-800 font-medium transition-colors mb-6"
+        >
+          <ArrowLeft size={18} /> Back to Properties
+        </button>
+
         {/* Top Summary Card */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
           <div className="flex flex-col lg:flex-row gap-8">

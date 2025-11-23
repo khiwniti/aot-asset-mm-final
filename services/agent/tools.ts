@@ -122,6 +122,23 @@ export const APP_TOOLS = [
         required: ["title", "type", "period", "summary", "keyMetrics"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "draft_email",
+      description: "Draft an email to a tenant, vendor, or stakeholder.",
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          recipient: { type: Type.STRING },
+          subject: { type: Type.STRING },
+          body: { type: Type.STRING },
+          context: { type: Type.STRING, description: "Reason for email (e.g., renewal, repair)" }
+        },
+        required: ["recipient", "subject", "body"]
+      }
+    }
   }
 ];
 

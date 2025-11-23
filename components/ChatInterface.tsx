@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { 
   Send, Bot, User, ThumbsUp, ThumbsDown, 
   CheckCircle, XCircle, AlertTriangle, MapPin, ArrowUpRight, Sparkles, Mic, MicOff, Activity,
-  FileText, Download
+  FileText, Download, Mail, Edit, SendHorizontal
 } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { UIPayload, ReportData } from '../types';
@@ -27,22 +27,38 @@ const ChatInterface = ({ isFullPage = false, theme = 'light' }: ChatInterfacePro
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Effect: When a new AI message arrives with a UI payload, update the global visualizer
+  // Effect: Auto-activate workspace for Generative UI components
   useEffect(() => {
     const lastMsg = messages[messages.length - 1];
+    
+    // Only trigger if it's an AI message with a payload
     if (lastMsg?.role === 'ai' && lastMsg.uiPayload) {
        const { type, data } = lastMsg.uiPayload;
        
-       // If it's a Chart or Map, push to the main visualizer
-       if (type === 'chart' || type === 'map' || type === 'kanban') {
+       // Define which types should trigger the visualizer workspace
+       // We map non-visual types to a generic 'kanban' or specific type if available in Visuals.tsx
+       // For now, we'll map charts/maps directly, and others to a placeholder to force open the pane
+       
+       if (type === 'chart' || type === 'map') {
           setActiveVisual({
              type: type,
              title: data.title || 'Analysis',
              data: data
           });
+       } else if (type === 'kanban' || type === 'report' || type === 'alert_list') {
+          // For other GenUI types, we might want to show them on the right in a full-page view later.
+          // For now, let's treat them as a 'kanban' type placeholder to verify activation works,
+          // or strictly strictly adhere to charts/maps if that's the only visualizer implemented.
+          
+          // Assuming 'kanban' is the generic "Visualizer Placeholder" type in AskAOT.tsx:
+          setActiveVisual({
+             type: 'kanban', // Using kanban as a proxy for "Generic Visual"
+             title: data.title || 'Generated Content',
+             data: data
+          });
        }
     }
-  }, [messages, setActiveVisual]);
+  }, [messages.length]); // Depend on length to trigger only when new message arrives
 
   const handleSend = (text: string = input) => {
     if (!text.trim()) return;
@@ -50,51 +66,69 @@ const ChatInterface = ({ isFullPage = false, theme = 'light' }: ChatInterfacePro
     setInput('');
   };
 
-  // --- Quick Actions Grid (Dark Mode Only) ---
+  // --- Quick Actions Grid (Adaptive for Light/Dark) ---
   const QuickActions = () => (
     <div className="grid grid-cols-2 gap-3 mt-6 animate-in fade-in slide-in-from-bottom-4">
       <button 
-        onClick={() => openChatWithPrompt("Generate a monthly performance report.")}
-        className="bg-[#1e293b] hover:bg-[#334155] p-4 rounded-xl border border-slate-700 text-left group transition-all"
+        onClick={() => {
+            // This prompt should trigger a report generation response
+            openChatWithPrompt("Generate a monthly performance report.");
+        }}
+        className={`p-4 rounded-xl border text-left group transition-all
+           ${isDark 
+             ? 'bg-[#1e293b] hover:bg-[#334155] border-slate-700' 
+             : 'bg-white hover:bg-slate-50 border-slate-200 shadow-sm hover:border-blue-200'}`}
       >
         <div className="flex justify-between items-start mb-2">
-          <span className="text-blue-400 font-bold text-xs">Generate Monthly Report</span>
-          <FileText size={16} className="text-blue-400 opacity-50 group-hover:opacity-100" />
+          <span className={`font-bold text-xs ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Generate Monthly Report</span>
+          <FileText size={16} className={`${isDark ? 'text-blue-400' : 'text-blue-500'} opacity-50 group-hover:opacity-100`} />
         </div>
-        <div className="h-1 w-8 bg-blue-500/30 rounded-full"></div>
+        <div className={`h-1 w-8 rounded-full ${isDark ? 'bg-blue-500/30' : 'bg-blue-100'}`}></div>
       </button>
 
       <button 
         onClick={() => openChatWithPrompt("Identify at-risk accounts that need attention.")}
-        className="bg-[#1e293b] hover:bg-[#334155] p-4 rounded-xl border border-slate-700 text-left group transition-all"
+        className={`p-4 rounded-xl border text-left group transition-all
+           ${isDark 
+             ? 'bg-[#1e293b] hover:bg-[#334155] border-slate-700' 
+             : 'bg-white hover:bg-slate-50 border-slate-200 shadow-sm hover:border-amber-200'}`}
       >
         <div className="flex justify-between items-start mb-2">
-          <span className="text-amber-400 font-bold text-xs">Identify at-risk accounts</span>
-          <AlertTriangle size={16} className="text-amber-400 opacity-50 group-hover:opacity-100" />
+          <span className={`font-bold text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>Identify at-risk accounts</span>
+          <AlertTriangle size={16} className={`${isDark ? 'text-amber-400' : 'text-amber-500'} opacity-50 group-hover:opacity-100`} />
         </div>
-        <div className="h-1 w-8 bg-amber-500/30 rounded-full"></div>
+        <div className={`h-1 w-8 rounded-full ${isDark ? 'bg-amber-500/30' : 'bg-amber-100'}`}></div>
       </button>
 
       <button 
-        onClick={() => openChatWithPrompt("Suggest growth plays for current tenants.")}
-        className="bg-[#1e293b] hover:bg-[#334155] p-4 rounded-xl border border-slate-700 text-left group transition-all"
+        onClick={() => openChatWithPrompt("Draft an email to TechCorp regarding lease renewal.")}
+        className={`p-4 rounded-xl border text-left group transition-all
+           ${isDark 
+             ? 'bg-[#1e293b] hover:bg-[#334155] border-slate-700' 
+             : 'bg-white hover:bg-slate-50 border-slate-200 shadow-sm hover:border-purple-200'}`}
       >
         <div className="flex justify-between items-start mb-2">
-          <span className="text-purple-400 font-bold text-xs">Surface growth plays</span>
-          <ArrowUpRight size={16} className="text-purple-400 opacity-50 group-hover:opacity-100" />
+          <span className={`font-bold text-xs ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Draft Lease Email</span>
+          <Mail size={16} className={`${isDark ? 'text-purple-400' : 'text-purple-500'} opacity-50 group-hover:opacity-100`} />
         </div>
-        <div className="h-1 w-8 bg-purple-500/30 rounded-full"></div>
+        <div className={`h-1 w-8 rounded-full ${isDark ? 'bg-purple-500/30' : 'bg-purple-100'}`}></div>
       </button>
 
       <button 
-        onClick={() => openChatWithPrompt("Forecast revenue for the next quarter.")}
-        className="bg-[#1e293b] hover:bg-[#334155] p-4 rounded-xl border border-slate-700 text-left group transition-all"
+        onClick={() => {
+            // This prompt will trigger a chart response, activating the visualizer
+            openChatWithPrompt("Forecast revenue for the next quarter.");
+        }}
+        className={`p-4 rounded-xl border text-left group transition-all
+           ${isDark 
+             ? 'bg-[#1e293b] hover:bg-[#334155] border-slate-700' 
+             : 'bg-white hover:bg-slate-50 border-slate-200 shadow-sm hover:border-cyan-200'}`}
       >
         <div className="flex justify-between items-start mb-2">
-          <span className="text-cyan-400 font-bold text-xs">Forecast next quarter</span>
-          <ArrowUpRight size={16} className="text-cyan-400 opacity-50 group-hover:opacity-100" />
+          <span className={`font-bold text-xs ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>Forecast next quarter</span>
+          <ArrowUpRight size={16} className={`${isDark ? 'text-cyan-400' : 'text-cyan-500'} opacity-50 group-hover:opacity-100`} />
         </div>
-        <div className="h-1 w-8 bg-cyan-500/30 rounded-full"></div>
+        <div className={`h-1 w-8 rounded-full ${isDark ? 'bg-cyan-500/30' : 'bg-cyan-100'}`}></div>
       </button>
     </div>
   );
@@ -209,6 +243,32 @@ const ChatInterface = ({ isFullPage = false, theme = 'light' }: ChatInterfacePro
      </div>
   );
 
+  const GenUIEmail = ({ data }: { data: any }) => (
+    <div className={`${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-slate-200'} rounded-xl border p-4 mt-2 shadow-sm w-full`}>
+        <div className="flex items-center gap-2 mb-3 text-purple-500">
+            <Mail size={16} />
+            <span className="text-xs font-bold uppercase tracking-wider">Email Draft</span>
+        </div>
+        <div className={`text-xs mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+            <span className="font-bold text-slate-500">To:</span> {data.recipient}
+        </div>
+        <div className={`text-xs mb-3 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+            <span className="font-bold text-slate-500">Subject:</span> {data.subject}
+        </div>
+        <div className={`p-3 rounded-lg text-xs whitespace-pre-line mb-4 ${isDark ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
+            {data.body}
+        </div>
+        <div className="flex gap-2">
+            <button className="flex-1 py-2 border border-purple-200 text-purple-600 rounded-lg text-xs font-bold hover:bg-purple-50 flex items-center justify-center gap-1 transition-colors">
+                <Edit size={14} /> Edit
+            </button>
+            <button className="flex-1 py-2 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-700 flex items-center justify-center gap-1 transition-colors">
+                <SendHorizontal size={14} /> Send
+            </button>
+        </div>
+    </div>
+  );
+
   // --- Voice Mode Overlay ---
   if (voiceStatus !== 'disconnected') {
     return (
@@ -262,7 +322,7 @@ const ChatInterface = ({ isFullPage = false, theme = 'light' }: ChatInterfacePro
     <div className="flex flex-col h-full">
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-        {messages.length === 1 && isDark && <QuickActions />}
+        {messages.length === 1 && <QuickActions />}
         
         {messages.map((msg) => (
           <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -298,6 +358,7 @@ const ChatInterface = ({ isFullPage = false, theme = 'light' }: ChatInterfacePro
                     {msg.uiPayload.type === 'approval' && <GenUIApproval payload={msg.uiPayload} msgId={msg.id} />}
                     {msg.uiPayload.type === 'alert_list' && <GenUIAlerts data={msg.uiPayload.data} />}
                     {msg.uiPayload.type === 'report' && <GenUIReport data={msg.uiPayload.data} />}
+                    {msg.uiPayload.type === 'email' && <GenUIEmail data={msg.uiPayload.data} />}
                  </div>
               )}
             </div>

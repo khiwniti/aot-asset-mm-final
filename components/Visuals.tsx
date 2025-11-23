@@ -18,15 +18,19 @@ export const ChartVisual = ({ data, theme = 'dark' }: VisualProps) => {
   const tooltipBorder = isDark ? '#334155' : '#e2e8f0';
   const tooltipText = isDark ? '#f8fafc' : '#0f172a';
 
+  if (!data || !data.series) {
+    return <div className="flex items-center justify-center h-full text-slate-500 text-sm">No chart data available</div>;
+  }
+
   const commonOption = {
     backgroundColor: 'transparent',
     textStyle: {
-      fontFamily: "'Inter', sans-serif",
+      fontFamily: "'Plus Jakarta Sans', sans-serif",
     },
     tooltip: {
       backgroundColor: tooltipBg,
       borderColor: tooltipBorder,
-      textStyle: { color: tooltipText },
+      textStyle: { color: tooltipText, fontFamily: "'Plus Jakarta Sans', sans-serif" },
       borderWidth: 1,
       padding: 12,
       trigger: data.chartType === 'pie' ? 'item' : 'axis',
@@ -48,7 +52,7 @@ export const ChartVisual = ({ data, theme = 'dark' }: VisualProps) => {
         legend: {
           bottom: '0%',
           left: 'center',
-          textStyle: { color: textColor }
+          textStyle: { color: textColor, fontFamily: "'Plus Jakarta Sans', sans-serif" }
         },
         series: [
           {
@@ -70,7 +74,8 @@ export const ChartVisual = ({ data, theme = 'dark' }: VisualProps) => {
                 show: true,
                 fontSize: 16,
                 fontWeight: 'bold',
-                color: textColor
+                color: textColor,
+                fontFamily: "'Plus Jakarta Sans', sans-serif"
               },
               itemStyle: {
                  shadowBlur: 10,
@@ -90,12 +95,12 @@ export const ChartVisual = ({ data, theme = 'dark' }: VisualProps) => {
     }
 
     if (data.chartType === 'bar') {
-      const hasSeries2 = data.series[0]?.value2 !== undefined;
+      const hasSeries2 = Array.isArray(data.series) && data.series.length > 0 && data.series[0]?.value2 !== undefined;
       return {
         ...commonOption,
         legend: {
             data: hasSeries2 ? ['Series 1', 'Series 2'] : undefined,
-            textStyle: { color: textColor },
+            textStyle: { color: textColor, fontFamily: "'Plus Jakarta Sans', sans-serif" },
             top: 0
         },
         xAxis: {
@@ -103,13 +108,14 @@ export const ChartVisual = ({ data, theme = 'dark' }: VisualProps) => {
           data: data.series.map((d: any) => d.name),
           axisLine: { show: false },
           axisTick: { show: false },
-          axisLabel: { color: textColor }
+          axisLabel: { color: textColor, fontFamily: "'Plus Jakarta Sans', sans-serif" }
         },
         yAxis: {
           type: 'value',
           splitLine: { lineStyle: { color: gridColor, type: 'dashed' } },
           axisLabel: { 
             color: textColor,
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
             formatter: (val: number) => val >= 1000 ? `${val/1000}k` : val
           }
         },
@@ -157,12 +163,12 @@ export const ChartVisual = ({ data, theme = 'dark' }: VisualProps) => {
         data: data.series.map((d: any) => d.name),
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: textColor }
+        axisLabel: { color: textColor, fontFamily: "'Plus Jakarta Sans', sans-serif" }
       },
       yAxis: {
         type: 'value',
         splitLine: { lineStyle: { color: gridColor, type: 'dashed' } },
-        axisLabel: { color: textColor }
+        axisLabel: { color: textColor, fontFamily: "'Plus Jakarta Sans', sans-serif" }
       },
       series: [
         {

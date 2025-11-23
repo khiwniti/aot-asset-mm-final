@@ -1,7 +1,8 @@
 import Header from '../components/Header';
 import AIAssistButton from '../components/AIAssistButton';
 import ReactECharts from 'echarts-for-react';
-import { ArrowUpRight, Download } from 'lucide-react';
+import { ArrowUpRight, Download, TrendingUp } from 'lucide-react';
+import * as echarts from 'echarts';
 
 const FinancialManagement = () => {
   // Mock data for simulations
@@ -32,19 +33,14 @@ const FinancialManagement = () => {
   // --- ECharts Options ---
 
   // Waterfall Chart Logic
-  // Revenue: 2400 (0 to 2400)
-  // Parking: 150 (2400 to 2550)
-  // Maint: -400 (2550 to 2150)
-  // Tax: -300 (2150 to 1850)
-  // Util: -200 (1850 to 1650)
-  // NOI: 1650 (0 to 1650)
-
   const waterfallOption = {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
       formatter: function (params: any) {
+        if (!Array.isArray(params) || params.length < 2) return '';
         let tar = params[1];
+        if (!tar) return '';
         return tar.name + '<br/>' + tar.seriesName + ' : ' + tar.value;
       }
     },
@@ -111,9 +107,115 @@ const FinancialManagement = () => {
           borderColor: '#fff',
           borderWidth: 2
         },
-        label: { show: false },
+        label: { show: false, position: 'center' },
         labelLine: { show: false },
         data: EXPENSES_DATA.map(d => ({ value: d.value, name: d.name, itemStyle: { color: d.color } }))
+      }
+    ]
+  };
+
+  // Expense Forecast Chart Logic
+  const forecastOption = {
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params: any) => {
+        if (!Array.isArray(params) || !params[0]) return '';
+        const p = params[0];
+        return `<div class="font-bold text-slate-700">${p.name}</div>
+                <div class="text-blue-600">Forecast: $${p.value}k</div>`;
+      }
+    },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
+      axisLine: { show: false },
+      axisTick: { show: false }
+    },
+    yAxis: {
+      type: 'value',
+      splitLine: { lineStyle: { type: 'dashed', color: '#e2e8f0' } },
+      axisLabel: { formatter: '${value}k' }
+    },
+    visualMap: {
+      show: false,
+      dimension: 0,
+      pieces: [
+        { lte: 2, color: '#3b82f6' }, // Historical data (first 3 points)
+        { gt: 2, lte: 11, color: '#93c5fd' } // Forecast data (dashed effect simulated by color or separate series)
+      ]
+    },
+    series: [
+      {
+        name: 'Expense Forecast',
+        type: 'line',
+        smooth: true,
+        data: [85, 88, 92, 80, 82, 78, 75, 76, 79, 85, 90, 95], // Mock data
+        markArea: {
+          itemStyle: { color: 'rgba(241, 245, 249, 0.5)' },
+          data: [[{ xAxis: 'Jan' }, { xAxis: 'Sep' }]]
+        },
+        lineStyle: { width: 3 },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(59, 130, 246, 0.2)' },
+            { offset: 1, color: 'rgba(59, 130, 246, 0.0)' }
+          ])
+        }
+      }
+    ]
+  };
+
+  // Revenue Forecast Chart Logic
+  const revenueForecastOption = {
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params: any) => {
+        if (!Array.isArray(params) || !params[0]) return '';
+        const p = params[0];
+        return `<div class="font-bold text-slate-700">${p.name}</div>
+                <div class="text-green-600">Projected: $${p.value}k</div>`;
+      }
+    },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
+      axisLine: { show: false },
+      axisTick: { show: false }
+    },
+    yAxis: {
+      type: 'value',
+      splitLine: { lineStyle: { type: 'dashed', color: '#e2e8f0' } },
+      axisLabel: { formatter: '${value}k' }
+    },
+    visualMap: {
+      show: false,
+      dimension: 0,
+      pieces: [
+        { lte: 2, color: '#10b981' }, // Historical
+        { gt: 2, lte: 11, color: '#34d399' } // Forecast
+      ]
+    },
+    series: [
+      {
+        name: 'Revenue Forecast',
+        type: 'line',
+        smooth: true,
+        data: [120, 125, 130, 128, 135, 140, 142, 145, 148, 150, 155, 160], // Mock data
+        markArea: {
+          itemStyle: { color: 'rgba(240, 253, 244, 0.5)' },
+          data: [[{ xAxis: 'Jan' }, { xAxis: 'Sep' }]]
+        },
+        lineStyle: { width: 3 },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(16, 185, 129, 0.2)' },
+            { offset: 1, color: 'rgba(16, 185, 129, 0.0)' }
+          ])
+        }
       }
     ]
   };
@@ -168,6 +270,57 @@ const FinancialManagement = () => {
                 ))}
              </div>
           </div>
+        </div>
+
+        {/* Forecast Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Revenue Forecast */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                        <TrendingUp className="text-green-600" size={20} />
+                        <h3 className="font-bold text-lg text-slate-800">Revenue Forecast (12 Mo)</h3>
+                        <AIAssistButton prompt="What is driving the projected revenue growth in Q3?" />
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                            <span className="w-3 h-1 bg-green-500 rounded-full"></span>
+                            <span className="text-slate-600">Historical</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="w-3 h-1 bg-green-300 rounded-full"></span>
+                            <span className="text-slate-600">Projected</span>
+                        </div>
+                    </div>
+                </div>
+                <div className="h-[300px]">
+                    <ReactECharts option={revenueForecastOption} style={{height: '100%', width: '100%'}} />
+                </div>
+            </div>
+
+            {/* Expense Forecast */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                        <TrendingUp className="text-blue-600" size={20} />
+                        <h3 className="font-bold text-lg text-slate-800">Expense Forecast (12 Mo)</h3>
+                        <AIAssistButton prompt="Based on this forecast, should we increase budget for Q2?" />
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                            <span className="w-3 h-1 bg-blue-500 rounded-full"></span>
+                            <span className="text-slate-600">Historical</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="w-3 h-1 bg-blue-300 rounded-full"></span>
+                            <span className="text-slate-600">Projected</span>
+                        </div>
+                    </div>
+                </div>
+                <div className="h-[300px]">
+                    <ReactECharts option={forecastOption} style={{height: '100%', width: '100%'}} />
+                </div>
+            </div>
         </div>
 
         {/* Financial Breakdown Table */}

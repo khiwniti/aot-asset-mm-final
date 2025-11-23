@@ -7,42 +7,37 @@ interface HeaderProps {
 
 const Header = ({ title, subtitle }: HeaderProps) => {
   return (
-    <header className="bg-white border-b border-gray-200 px-8 py-5 flex items-center justify-between sticky top-0 z-20">
+    <header className="sticky top-0 z-20 px-8 py-5 flex items-center justify-between bg-[#f8fafc]/80 backdrop-blur-md border-b border-slate-200/50 transition-all">
       <div>
-        <h2 className="text-2xl font-bold text-slate-800">{title}</h2>
-        {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
+        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{title}</h2>
+        {subtitle && <p className="text-sm text-slate-500 mt-1 font-medium">{subtitle}</p>}
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-5">
         {/* Simulated Search */}
-        <div className="hidden md:flex items-center bg-slate-50 rounded-lg px-3 py-2 border border-transparent focus-within:border-blue-300 focus-within:bg-white transition-all mr-4">
+        <div className="hidden md:flex items-center bg-white/60 backdrop-blur-sm rounded-xl px-4 py-2.5 border border-slate-200 focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-50 transition-all w-72 shadow-sm">
           <Search size={18} className="text-slate-400" />
           <input 
             type="text" 
-            placeholder="Search assets, tenants..." 
-            className="bg-transparent border-none outline-none text-sm ml-2 text-slate-700 w-64 placeholder:text-slate-400"
+            placeholder="Search properties, data..." 
+            className="bg-transparent border-none outline-none text-sm ml-3 text-slate-700 w-full placeholder:text-slate-400 font-medium"
           />
+          <div className="flex gap-1">
+             <span className="text-[10px] text-slate-400 border border-slate-200 rounded px-1.5 bg-slate-50">⌘</span>
+             <span className="text-[10px] text-slate-400 border border-slate-200 rounded px-1.5 bg-slate-50">K</span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button className="relative p-2 rounded-full hover:bg-slate-50 text-slate-500 transition-colors">
+        <div className="flex items-center gap-3">
+          <button className="relative p-2.5 rounded-xl hover:bg-white hover:shadow-sm text-slate-500 transition-all border border-transparent hover:border-slate-100">
             <Bell size={20} />
-            <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">15</span>
+            <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-[#f8fafc]"></span>
           </button>
           
-          <div className="h-6 w-px bg-gray-200 mx-1"></div>
-
-          <button className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-50 transition-colors">
-            <div className="w-8 h-8 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center overflow-hidden">
-              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex" alt="Alex" className="w-full h-full" />
-            </div>
-            <span className="text-sm font-medium text-slate-700 hidden sm:block">Alex</span>
-            <ChevronDown size={16} className="text-slate-400" />
-          </button>
-
-          <button className="flex items-center gap-1 px-2 py-1 rounded text-slate-500 hover:text-slate-800 text-xs font-medium border border-slate-200">
-            <Globe size={14} />
-            <span>English</span>
+          <button className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100 transition-all text-slate-600">
+            <Globe size={18} />
+            <span className="text-sm font-semibold">EN</span>
+            <ChevronDown size={14} className="text-slate-400 opacity-70" />
           </button>
         </div>
       </div>

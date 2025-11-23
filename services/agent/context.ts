@@ -17,6 +17,7 @@ export const getSystemContext = (path: string): string => {
   - You can show alerts using 'show_alerts'.
   - You can request approvals using 'request_approval'.
   - You can generate reports using 'generate_report'.
+  - You can draft emails using 'draft_email'.
   
   Routing Knowledge:
   - Dashboard: /

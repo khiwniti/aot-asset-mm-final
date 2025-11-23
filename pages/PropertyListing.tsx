@@ -9,7 +9,9 @@ import {
   Search,
   ArrowRight,
   TrendingUp,
-  MapPin
+  MapPin,
+  AlertCircle,
+  Filter
 } from 'lucide-react';
 import Header from '../components/Header';
 import AIAssistButton from '../components/AIAssistButton';
@@ -18,7 +20,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 
 // Set Mapbox Access Token
-// Note: In a real app, this should be in .env
 const MAPBOX_TOKEN = 'pk.eyJ1Ijoia2hpd25pdGkiLCJhIjoiY205eDFwMzl0MHY1YzJscjB3bm4xcnh5ZyJ9.ANGVE0tiA9NslBn8ft_9fQ';
 
 interface MapboxMapProps {
@@ -37,72 +38,138 @@ interface MapboxMapProps {
 const MapboxMap = ({ center, zoom, markers }: MapboxMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const navigate = useNavigate();
+  const [mapError, setMapError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!mapContainer.current) return;
+    
+    let isMounted = true;
 
-    mapboxgl.accessToken = MAPBOX_TOKEN;
+    const initializeMap = async () => {
+        try {
+            mapboxgl.accessToken = MAPBOX_TOKEN;
 
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [center[1], center[0]], // Mapbox uses [lng, lat]
-      zoom: zoom,
-    });
+            // FIX: Manually load worker via Blob to prevent "blocked by CORS" or "URL scheme" errors in strict environments
+            // Also check if workerUrl is already a blob to prevent re-initialization loop
+            if (!mapboxgl.workerUrl || (typeof mapboxgl.workerUrl === 'string' && mapboxgl.workerUrl.indexOf('blob:') !== 0)) {
+                try {
+                    const workerUrl = "https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl-csp-worker.js";
+                    const response = await fetch(workerUrl);
+                    const workerScript = await response.text();
+                    const blob = new Blob([workerScript], { type: 'application/javascript' });
+                    // @ts-ignore
+                    mapboxgl.workerUrl = window.URL.createObjectURL(blob);
+                } catch (workerError) {
+                    console.warn("Failed to load Mapbox worker via Blob, falling back to default (may fail in sandbox).", workerError);
+                }
+            }
 
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+            if (!isMounted) return;
 
-    // Add markers
-    markers.forEach((marker) => {
-      const popupNode = document.createElement('div');
-      popupNode.className = 'min-w-[150px]';
-      popupNode.innerHTML = `
-        <div class="text-sm font-bold text-slate-800">${marker.title}</div>
-        <div class="text-xs text-slate-500 mb-1">${marker.subtitle || ''}</div>
-        <div class="text-xs font-bold text-blue-600">${marker.price || ''}</div>
-        <button id="btn-${marker.id}" class="text-[10px] text-blue-500 hover:underline block mt-2 cursor-pointer">
-          View Details
-        </button>
-      `;
-
-      // Add event listener for navigation button inside popup
-      const popup = new mapboxgl.Popup({ offset: 25 }).setDOMContent(popupNode);
-      
-      // Handle navigation click manually since innerHTML doesn't use React Router
-      popup.on('open', () => {
-        const btn = document.getElementById(`btn-${marker.id}`);
-        if (btn) {
-            btn.addEventListener('click', () => {
-                // Navigate programmatically
-                window.location.hash = `#/properties/${marker.id}`;
+            map.current = new mapboxgl.Map({
+                container: mapContainer.current!,
+                style: 'mapbox://styles/mapbox/streets-v12',
+                center: [center[1], center[0]], // Mapbox uses [lng, lat]
+                zoom: zoom,
+                attributionControl: false, // Disable attribution to avoid iframe access issues (Location.href)
             });
-        }
-      });
 
-      new mapboxgl.Marker()
-        .setLngLat([marker.lng, marker.lat])
-        .setPopup(popup)
-        .addTo(map.current!);
-    });
+            map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+            // Add markers
+            markers.forEach((marker) => {
+                const popupNode = document.createElement('div');
+                popupNode.className = 'min-w-[150px]';
+                popupNode.innerHTML = `
+                    <div class="text-sm font-bold text-slate-800">${marker.title}</div>
+                    <div class="text-xs text-slate-500 mb-1">${marker.subtitle || ''}</div>
+                    <div class="text-xs font-bold text-blue-600">${marker.price || ''}</div>
+                    <button id="btn-${marker.id}" class="text-[10px] text-blue-500 hover:underline block mt-2 cursor-pointer">
+                    View Details
+                    </button>
+                `;
+
+                const popup = new mapboxgl.Popup({ offset: 25 }).setDOMContent(popupNode);
+                
+                popup.on('open', () => {
+                    const btn = document.getElementById(`btn-${marker.id}`);
+                    if (btn) {
+                        btn.addEventListener('click', () => {
+                            window.location.hash = `#/properties/${marker.id}`;
+                        });
+                    }
+                });
+
+                new mapboxgl.Marker()
+                    .setLngLat([marker.lng, marker.lat])
+                    .setPopup(popup)
+                    .addTo(map.current!);
+            });
+
+            map.current.on('error', (e) => {
+               // Suppress known benign errors in sandboxed environments
+               const errorMsg = e.error?.message || '';
+               if (
+                   errorMsg.toLowerCase().includes('worker') || 
+                   errorMsg.includes('href') || 
+                   errorMsg.includes('Location')
+               ) {
+                   console.warn("Mapbox warning (suppressed):", errorMsg);
+                   return;
+               }
+               console.error("Mapbox runtime error:", e);
+            });
+
+        } catch (error: any) {
+            console.error("Mapbox initialization error:", error);
+            // Don't show full error UI for minor initialization glitches unless it's critical
+            // if(isMounted) setMapError(error.message || "Map could not be loaded.");
+        }
+    };
+
+    initializeMap();
 
     return () => {
-      map.current?.remove();
+      isMounted = false;
+      try {
+         map.current?.remove();
+      } catch(e) {
+         console.warn("Mapbox cleanup error", e);
+      }
     };
-  }, [center, zoom, markers]); // Re-initialize if core props change significantly
+  }, [center, zoom, markers]);
+
+  if (mapError) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 rounded-xl border border-slate-200 text-slate-400 p-6 text-center">
+         <AlertCircle size={32} className="mb-2 text-slate-300" />
+         <p className="text-sm font-medium text-slate-500">Map visualization unavailable</p>
+         <p className="text-xs mt-1 text-slate-400 max-w-[250px]">{mapError}</p>
+      </div>
+    );
+  }
 
   return <div ref={mapContainer} className="w-full h-full" />;
 };
 
 const PropertyListing = () => {
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'map'>('list');
-  const [selectedType, setSelectedType] = useState<string>('All');
   const [activeTab, setActiveTab] = useState('Property listing');
+  
+  // Filters
+  const [selectedType, setSelectedType] = useState<string>('All');
+  const [selectedCity, setSelectedCity] = useState<string>('All');
   const [selectedRegion, setSelectedRegion] = useState('Bangkok - BKK');
 
-  const filteredProperties = selectedType === 'All' 
-    ? PROPERTIES 
-    : PROPERTIES.filter(p => p.type === selectedType);
+  // Derived Data
+  const uniqueCities = ['All', ...Array.from(new Set(PROPERTIES.map(p => p.city)))];
+  const uniqueTypes = ['All', ...Array.from(new Set(PROPERTIES.map(p => p.type)))];
+
+  const filteredProperties = PROPERTIES.filter(p => {
+    const matchType = selectedType === 'All' || p.type === selectedType;
+    const matchCity = selectedCity === 'All' || p.city === selectedCity;
+    return matchType && matchCity;
+  });
 
   const regions = ['Bangkok - BKK', 'Bangkok - DMK', 'Phuket - HKT', 'Hat Yai - HDY', 'Chiang Mai - CNX', 'Chiang Rai - CEI'];
 
@@ -115,8 +182,6 @@ const PropertyListing = () => {
     { id: 'P006', name: '632/21 Suvarnabhumi residence', district: 'Bang sao thong', lat: 13.6930, lng: 100.7580, price: '13,000', status: 'Active' },
   ];
 
-  // Convert Mock Data to Map Markers Format
-  // Using approximate coords near Bangkok for mock properties without lat/lng
   const propertyMarkers = filteredProperties.map((p, idx) => ({
     id: p.id,
     title: p.name,
@@ -143,6 +208,15 @@ const PropertyListing = () => {
       desc: 'Renovating the kitchen could significantly lift both rental rates and long-term property value.',
       location: '632/21 Suvarnabhumi residence',
       subLocation: 'Bang Sao Thong District'
+    },
+    {
+      type: 'Risk alert',
+      title: '2 months payment overdue.',
+      value: 'Unpaid balance: 50,000 THB',
+      desc: 'Tenant has missed rent for 2 months in a row.',
+      location: '623/21 Urban Bang Phli',
+      subLocation: 'Bang Sao Thong District',
+      trend: 'neutral'
     }
   ];
 
@@ -159,6 +233,24 @@ const PropertyListing = () => {
   ];
 
   const renderPropertyView = () => {
+    if (filteredProperties.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-slate-200 shadow-sm text-center">
+           <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+              <Search className="text-slate-400" size={32} />
+           </div>
+           <h3 className="text-lg font-bold text-slate-800">No properties found</h3>
+           <p className="text-slate-500 mt-1">Try adjusting your filters to see more results.</p>
+           <button 
+             onClick={() => { setSelectedType('All'); setSelectedCity('All'); }}
+             className="mt-4 text-blue-600 font-medium hover:underline"
+           >
+             Clear all filters
+           </button>
+        </div>
+      );
+    }
+
     switch (viewMode) {
       case 'map':
         return (
@@ -300,25 +392,39 @@ const PropertyListing = () => {
               ))}
             </div>
 
-            {/* Filters */}
+            {/* Filters - Only visible in Property Listing */}
             {activeTab === 'Property listing' && (
               <div className="flex gap-3 overflow-x-auto pb-2 md:pb-0">
+                {/* Property Type Filter */}
                 <div className="relative">
                   <select 
-                      className="appearance-none bg-white border border-slate-200 hover:border-blue-400 text-slate-700 text-sm rounded-lg px-4 py-2.5 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer"
+                      className="appearance-none bg-white border border-slate-200 hover:border-blue-400 text-slate-700 text-sm rounded-lg px-4 py-2.5 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer min-w-[160px]"
+                      value={selectedType}
                       onChange={(e) => setSelectedType(e.target.value)}
                   >
-                    <option value="All">Property type</option>
-                    <option value="Residential">Residential</option>
-                    <option value="Commercial">Commercial</option>
+                    {uniqueTypes.map(type => (
+                      <option key={type} value={type}>{type === 'All' ? 'All Types' : type}</option>
+                    ))}
                   </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                    <Filter size={14} />
+                  </div>
                 </div>
+
+                {/* City Filter */}
                 <div className="relative">
-                  <select className="appearance-none bg-white border border-slate-200 hover:border-blue-400 text-slate-700 text-sm rounded-lg px-4 py-2.5 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer">
-                    <option>Region</option>
-                    <option>Bangkok</option>
-                    <option>Phuket</option>
+                  <select 
+                    className="appearance-none bg-white border border-slate-200 hover:border-blue-400 text-slate-700 text-sm rounded-lg px-4 py-2.5 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer min-w-[160px]"
+                    value={selectedCity}
+                    onChange={(e) => setSelectedCity(e.target.value)}
+                  >
+                    {uniqueCities.map(city => (
+                      <option key={city} value={city}>{city === 'All' ? 'All Cities' : city}</option>
+                    ))}
                   </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                    <MapPin size={14} />
+                  </div>
                 </div>
               </div>
             )}

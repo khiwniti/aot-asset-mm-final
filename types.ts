@@ -42,7 +42,7 @@ export interface Task {
   priority: 'High' | 'Medium' | 'Low';
 }
 
-export type UIComponentType = 'chart' | 'approval' | 'alert_list' | 'property_card' | 'map' | 'kanban' | 'navigate' | 'report';
+export type UIComponentType = 'chart' | 'approval' | 'alert_list' | 'property_card' | 'map' | 'kanban' | 'navigate' | 'report' | 'email';
 
 export interface ReportData {
   id: string;

@@ -1,7 +1,7 @@
-import { useState, useRef, type DragEvent, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, type DragEvent, type ChangeEvent } from 'react';
 import { 
   UploadCloud, FileSpreadsheet, CheckCircle2, AlertTriangle, 
-  ArrowRight, RefreshCw, Database, Sparkles, FileText, Activity, Layout, X
+  ArrowRight, RefreshCw, Database, Sparkles, FileText, Activity, Layout, X, Loader2
 } from 'lucide-react';
 import { analyzeDataMapping } from '../services/geminiService';
 import { ImportJob } from '../types';
@@ -9,9 +9,29 @@ import { ImportJob } from '../types';
 const DataImporter = () => {
   const [importJob, setImportJob] = useState<ImportJob | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = async (e: DragEvent | ChangeEvent) => {
+  // Simulate progress bar during analysis
+  useEffect(() => {
+    if (importJob?.status === 'analyzing') {
+      setAnalysisProgress(0);
+      const interval = setInterval(() => {
+        setAnalysisProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(interval);
+            return 90; // Wait for actual completion
+          }
+          return prev + 10;
+        });
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [importJob?.status]);
+
+  const handleFileSelect = (e: DragEvent | ChangeEvent) => {
     e.preventDefault();
     setIsDragOver(false);
 
@@ -22,13 +42,22 @@ const DataImporter = () => {
         file = (e.target as HTMLInputElement).files?.[0] || null;
     }
 
-    if (!file) return;
+    if (file) {
+      setPendingFile(file);
+      setShowConfirmation(true);
+    }
+  };
+
+  const confirmUpload = async () => {
+    if (!pendingFile) return;
+    
+    setShowConfirmation(false);
 
     // 1. Initialize Job
     setImportJob({
       id: 'job-' + Date.now(),
-      fileName: file.name,
-      fileSize: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+      fileName: pendingFile.name,
+      fileSize: (pendingFile.size / (1024 * 1024)).toFixed(2) + ' MB',
       uploadDate: new Date().toISOString(),
       status: 'analyzing', // Start immediately with AI analysis
       mappings: []
@@ -37,12 +66,11 @@ const DataImporter = () => {
     // 2. Extract Headers
     let headers: string[] = [];
 
-    if (file.name.toLowerCase().endsWith('.csv')) {
+    if (pendingFile.name.toLowerCase().endsWith('.csv')) {
         try {
-            const text = await file.text();
+            const text = await pendingFile.text();
             const firstLine = text.split('\n')[0];
             if (firstLine) {
-                // Basic CSV split, handling potential quotes would require a library, but this suffices for simple CSVs
                 headers = firstLine.split(',').map(h => h.trim().replace(/^"|"$/g, ''));
             }
         } catch (err) {
@@ -56,13 +84,22 @@ const DataImporter = () => {
     }
 
     // 3. Trigger AI Analysis
-    triggerAIAnalysis(headers, file.name);
+    triggerAIAnalysis(headers, pendingFile.name);
+  };
+
+  const cancelUpload = () => {
+    setPendingFile(null);
+    setShowConfirmation(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const triggerAIAnalysis = async (headers: string[], fileName: string) => {
     try {
       const mappings = await analyzeDataMapping(headers, fileName);
-      setImportJob(prev => prev ? { ...prev, status: 'mapping', mappings } : null);
+      setAnalysisProgress(100);
+      setTimeout(() => {
+        setImportJob(prev => prev ? { ...prev, status: 'mapping', mappings } : null);
+      }, 500);
     } catch (error) {
       console.error("Mapping Error", error);
       setImportJob(prev => prev ? { ...prev, status: 'error' } : null);
@@ -76,6 +113,7 @@ const DataImporter = () => {
 
   const resetUpload = () => {
       setImportJob(null);
+      setPendingFile(null);
       if (fileInputRef.current) {
           fileInputRef.current.value = '';
       }
@@ -109,11 +147,44 @@ const DataImporter = () => {
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column: Upload Area */}
           <div className="lg:col-span-2 space-y-6">
-             {!importJob || importJob.status === 'uploading' ? (
+             
+             {/* Confirmation Modal / Overlay */}
+             {showConfirmation && pendingFile && (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-lg p-6 animate-in zoom-in-95 duration-200">
+                   <div className="flex items-start gap-4 mb-6">
+                      <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shrink-0">
+                         <AlertTriangle size={24} />
+                      </div>
+                      <div>
+                         <h3 className="font-bold text-lg text-slate-900">Confirm File Upload</h3>
+                         <p className="text-slate-500 text-sm mt-1">
+                            You are about to upload <strong>{pendingFile.name}</strong> ({(pendingFile.size / 1024).toFixed(1)} KB). 
+                            Please verify this is the correct dataset before proceeding to AI analysis.
+                         </p>
+                      </div>
+                   </div>
+                   <div className="flex justify-end gap-3">
+                      <button 
+                         onClick={cancelUpload}
+                         className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+                      >
+                         Cancel
+                      </button>
+                      <button 
+                         onClick={confirmUpload}
+                         className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-sm transition-colors flex items-center gap-2"
+                      >
+                         Confirm & Analyze <ArrowRight size={16} />
+                      </button>
+                   </div>
+                </div>
+             )}
+
+             {(!importJob || importJob.status === 'uploading') && !showConfirmation && (
                  <div 
                     onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
                     onDragLeave={() => setIsDragOver(false)}
-                    onDrop={handleFileUpload}
+                    onDrop={handleFileSelect}
                     onClick={() => fileInputRef.current?.click()}
                     className={`border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer group
                        ${isDragOver 
@@ -123,7 +194,7 @@ const DataImporter = () => {
                     <input 
                        type="file" 
                        ref={fileInputRef}
-                       onChange={handleFileUpload}
+                       onChange={handleFileSelect}
                        className="hidden" 
                        accept=".csv,.xlsx,.xls,.pdf" 
                     />
@@ -138,7 +209,9 @@ const DataImporter = () => {
                        <span className="px-3 py-1 bg-slate-100 rounded text-xs text-slate-500 font-medium flex items-center gap-1"><Database size={12}/> SQL Dump</span>
                     </div>
                  </div>
-             ) : (
+             )} 
+             
+             {importJob && (
                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                     {/* Job Header */}
                     <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -164,14 +237,28 @@ const DataImporter = () => {
                        </div>
                     </div>
 
-                    {/* Analysis State */}
+                    {/* Analysis State with Progress Bar */}
                     {importJob.status === 'analyzing' && (
                        <div className="p-12 text-center">
-                          <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                             <Sparkles size={32} />
+                          <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                             <Loader2 size={32} className="animate-spin" />
                           </div>
                           <h3 className="font-bold text-lg text-slate-800 mb-2">AI Analyzing Schema...</h3>
-                          <p className="text-slate-500 text-sm">Mapping columns to internal data structures.</p>
+                          <p className="text-slate-500 text-sm mb-6">Mapping columns to internal data structures.</p>
+                          
+                          {/* Progress Bar */}
+                          <div className="max-w-md mx-auto">
+                             <div className="flex justify-between text-xs text-slate-500 mb-1">
+                                <span>Processing</span>
+                                <span>{analysisProgress}%</span>
+                             </div>
+                             <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                <div 
+                                   className="h-full bg-blue-600 transition-all duration-300 ease-out rounded-full"
+                                   style={{ width: `${analysisProgress}%` }}
+                                ></div>
+                             </div>
+                          </div>
                        </div>
                     )}
 

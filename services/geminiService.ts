@@ -1,11 +1,10 @@
-
 import { Message, UIPayload, InsightData, MappingField } from "../types";
 import { APP_TOOLS, INSIGHT_SCHEMA } from "./agent/tools";
 import { getSystemContext } from "./agent/context";
 import { mcpService } from "./mcpService";
 
 // --- CONFIGURATION ---
-const GITHUB_TOKEN = "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";
+const GITHUB_TOKEN = ""; // Removed invalid token to force simulation mode
 const MODEL_NAME = "gpt-4o"; // GitHub Model name
 const API_ENDPOINT = "https://models.inference.ai.azure.com/chat/completions";
 
@@ -193,6 +192,8 @@ export const generateAIResponse = async (
                 generatedAt: new Date().toISOString()
               }
             };
+         } else if (funcName === 'draft_email') {
+            uiPayload = { type: 'email', data: args };
          }
          
          if (!text) {
@@ -271,11 +272,9 @@ export const analyzeDataMapping = async (headers: string[], fileName: string): P
         body: JSON.stringify({
           messages: [{
             role: "user",
-            content: `
-              Act as a Data Engineer. Map these CSV columns: ${JSON.stringify(headers)}
+            content: `Act as a Data Engineer. Map these CSV columns: ${JSON.stringify(headers)}
               To System Fields: [property_name, address, monthly_rent, occupancy, status, lease_start, tenant_name].
-              Return JSON array: [{ sourceField, targetField, confidence (0-100), issue }].
-            `
+              Return JSON array: [{ sourceField, targetField, confidence (0-100), issue }].`
           }],
           model: MODEL_NAME,
           response_format: { type: "json_object" }
@@ -319,10 +318,10 @@ const simulateStructuredResponse = async (message: string, context?: { path: str
   await new Promise(resolve => setTimeout(resolve, 800)); 
   const lowerMsg = message.toLowerCase();
   
-  // 1. Greetings
-  if (lowerMsg.match(/^(hi|hello|sawasdee|greetings)/)) {
+  // 1. Greetings & Voice Activation
+  if (lowerMsg.match(/^(hi|hello|sawasdee|greetings)/) || lowerMsg.includes("hi aot") || lowerMsg.includes("sawasdee aot")) {
      return {
-        text: "Hello! I am your AOT Assistant. I'm ready to help you analyze your portfolio, track revenue, or manage maintenance. What would you like to do?"
+        text: "Sawasdee! I am your AOT Assistant. I'm ready to help you analyze your portfolio, track revenue, or manage maintenance. What would you like to do?"
      };
   }
 
@@ -345,7 +344,23 @@ const simulateStructuredResponse = async (message: string, context?: { path: str
     };
   }
 
-  // 3. Navigation
+  // 3. Email Drafting
+  if (lowerMsg.includes('email') || lowerMsg.includes('draft') || lowerMsg.includes('send')) {
+     return {
+        text: "I've drafted a lease renewal email for TechCorp based on their upcoming expiry.",
+        uiPayload: {
+           type: 'email',
+           data: {
+              recipient: "TechCorp Inc. (contact@techcorp.com)",
+              subject: "Lease Renewal Proposal - Unit 5F",
+              body: "Dear TechCorp Team,\n\nWe value your tenancy at Suvarnabhumi Residence. As your lease is approaching its expiration on Dec 15, 2025, we would like to propose a renewal for another 12-month term at the rate of ฿8,500/mo.\n\nPlease let us know if you would like to discuss this further.\n\nBest regards,\nAOT Asset Management",
+              context: "renewal"
+           }
+        }
+     };
+  }
+
+  // 4. Navigation
   const navIntent = Object.keys(PAGE_ROUTES).find(page => lowerMsg.includes(page) && (lowerMsg.includes('go to') || lowerMsg.includes('navigate') || lowerMsg.includes('show')));
   if (navIntent) {
     return {
@@ -354,7 +369,7 @@ const simulateStructuredResponse = async (message: string, context?: { path: str
     };
   }
 
-  // 4. Charts / Revenue Analysis
+  // 5. Charts / Revenue Analysis
   if (lowerMsg.includes('revenue') || lowerMsg.includes('chart') || lowerMsg.includes('trend') || lowerMsg.includes('analyze')) {
      return {
         text: "Here is the analysis you requested. Revenue is trending upwards with a projected 12% annual growth.",
@@ -372,7 +387,7 @@ const simulateStructuredResponse = async (message: string, context?: { path: str
      };
   }
 
-  // 5. Alerts / Risks
+  // 6. Alerts / Risks
   if (lowerMsg.includes('alert') || lowerMsg.includes('risk') || lowerMsg.includes('attention')) {
      return {
         text: "I've identified a few critical items that need your attention.",
@@ -388,7 +403,7 @@ const simulateStructuredResponse = async (message: string, context?: { path: str
 
   // Default Offline Message
   return {
-    text: "I'm currently operating in offline demo mode (API connection unavailable). \n\nYou can try asking me to 'navigate to reports', 'analyze revenue', or 'show alerts' to see how the interface responds."
+    text: "I'm currently operating in offline demo mode (API connection unavailable). \n\nYou can try asking me to 'navigate to reports', 'draft an email', or 'analyze revenue' to see how the interface responds."
   };
 };
 

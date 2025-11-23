@@ -37,9 +37,9 @@ const OperationsAnalytics = () => {
   // --- Chart Options ---
 
   const commonChartOptions = {
-    textStyle: { fontFamily: "'Inter', sans-serif" },
+    textStyle: { fontFamily: "'Plus Jakarta Sans', sans-serif" },
     grid: { top: 40, right: 20, bottom: 20, left: 20, containLabel: true },
-    tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.9)', padding: 10, borderColor: '#e2e8f0', textStyle: { color: '#1e293b' } }
+    tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.9)', padding: 10, borderColor: '#e2e8f0', textStyle: { color: '#1e293b', fontFamily: "'Plus Jakarta Sans', sans-serif" } }
   };
 
   // 1. Energy Usage (Small Area Chart)
@@ -116,6 +116,7 @@ const OperationsAnalytics = () => {
     tooltip: {
       trigger: 'axis',
       formatter: (params: any) => {
+        if (!Array.isArray(params) || !params[0]) return '';
         const p = params[0];
         return `<div class="font-bold text-slate-700">${p.name}</div>
                 <div class="text-blue-600">$${(p.value * 1000000).toLocaleString()}</div>`;

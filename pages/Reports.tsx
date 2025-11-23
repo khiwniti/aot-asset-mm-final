@@ -1,10 +1,19 @@
+
 import Header from '../components/Header';
 import AIAssistButton from '../components/AIAssistButton';
-import { FileText, Download, Calendar, CheckCircle2, AlertCircle, Sparkles, ArrowRight } from 'lucide-react';
+import { FileText, Download, Calendar, CheckCircle2, AlertCircle, Sparkles, ArrowRight, ChevronRight, Clock } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Reports = () => {
   const { generatedReports } = useChat();
+  const navigate = useNavigate();
+
+  const MOCK_HISTORY = [
+      { id: 'RPT-2024-001', title: 'Q3 2024 Financial Performance', date: 'Oct 15, 2024', type: 'Financial', status: 'Finalized' },
+      { id: 'RPT-2024-002', title: 'Monthly Occupancy Analysis', date: 'Nov 01, 2024', type: 'Operational', status: 'Draft' },
+      { id: 'RPT-2024-003', title: 'Annual Compliance Audit', date: 'Nov 10, 2024', type: 'Compliance', status: 'Finalized' },
+  ];
 
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
@@ -38,13 +47,13 @@ const Reports = () => {
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {generatedReports.map((report, i) => (
-                   <div key={i} className="border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow bg-slate-50/50">
+                   <div key={i} className="border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow bg-slate-50/50 flex flex-col h-full">
                       <div className="flex justify-between items-start mb-2">
                          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded uppercase">{report.type}</span>
                          <span className="text-xs text-slate-400">{new Date(report.generatedAt).toLocaleDateString()}</span>
                       </div>
                       <h4 className="font-bold text-slate-800 mb-1">{report.title}</h4>
-                      <p className="text-sm text-slate-500 mb-4 line-clamp-2">{report.summary}</p>
+                      <p className="text-sm text-slate-500 mb-4 line-clamp-2 flex-1">{report.summary}</p>
                       
                       {/* Mini Metrics */}
                       <div className="grid grid-cols-3 gap-2 mb-4">
@@ -58,68 +67,78 @@ const Reports = () => {
                         ))}
                       </div>
 
-                      <button className="w-full py-2 border border-slate-200 hover:bg-white rounded-lg text-xs font-medium text-slate-600 transition-colors flex items-center justify-center gap-2">
-                         <Download size={14} /> Download PDF
-                      </button>
+                      <div className="flex gap-2 mt-auto">
+                        <Link 
+                            to={`/reports/${report.id}`} 
+                            className="flex-1 py-2 border border-slate-200 bg-white hover:bg-slate-50 rounded-lg text-xs font-bold text-slate-700 transition-colors flex items-center justify-center gap-1"
+                        >
+                            View Details <ChevronRight size={12} />
+                        </Link>
+                        <button className="px-3 py-2 border border-slate-200 bg-white hover:bg-slate-50 rounded-lg text-slate-600">
+                           <Download size={14} />
+                        </button>
+                      </div>
                    </div>
                 ))}
              </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-           {/* Custom Report Builder */}
-           <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+           {/* Report History List */}
+           <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
               <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                 <h3 className="font-bold text-slate-800">Custom Report Builder</h3>
-                 <AIAssistButton prompt="Help me build a custom report for investor meeting." />
+                 <h3 className="font-bold text-slate-800">Report History</h3>
+                 <button className="text-sm text-blue-600 font-medium hover:underline">View Archive</button>
               </div>
-              <div className="space-y-6">
-                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">1. Report Type</label>
-                    <select className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-100 outline-none">
-                       <option>Portfolio Analysis</option>
-                       <option>Rent Roll</option>
-                       <option>Vacancy Report</option>
-                    </select>
-                 </div>
-                 
-                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">2. Date Range</label>
-                    <div className="flex gap-4">
-                       <div className="relative flex-1">
-                          <Calendar className="absolute left-3 top-2.5 text-slate-400" size={16} />
-                          <input type="text" defaultValue="11/01/2024" className="w-full border border-slate-300 rounded-lg pl-10 pr-3 py-2.5 text-sm" />
-                       </div>
-                       <div className="relative flex-1">
-                          <Calendar className="absolute left-3 top-2.5 text-slate-400" size={16} />
-                          <input type="text" defaultValue="11/15/2024" className="w-full border border-slate-300 rounded-lg pl-10 pr-3 py-2.5 text-sm" />
-                       </div>
-                    </div>
-                 </div>
-
-                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">3. Output Format</label>
-                    <div className="flex gap-4">
-                       <label className="flex items-center gap-2 text-sm text-slate-600">
-                          <input type="radio" name="format" className="text-blue-600" /> PDF
-                       </label>
-                       <label className="flex items-center gap-2 text-sm text-slate-600">
-                          <input type="radio" name="format" className="text-blue-600" defaultChecked /> Excel
-                       </label>
-                    </div>
-                 </div>
-                 
-                 <div className="pt-4">
-                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
-                       <Download size={18} /> Generate Report
-                    </button>
-                 </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-slate-500 font-medium">
+                        <tr>
+                            <th className="p-3 rounded-l-lg">Report Name</th>
+                            <th className="p-3">Type</th>
+                            <th className="p-3">Date Generated</th>
+                            <th className="p-3">Status</th>
+                            <th className="p-3 rounded-r-lg text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {MOCK_HISTORY.map((report) => (
+                            <tr key={report.id} className="hover:bg-slate-50 transition-colors group">
+                                <td className="p-3">
+                                    <div className="font-bold text-slate-700 group-hover:text-blue-600">{report.title}</div>
+                                    <div className="text-xs text-slate-400">{report.id}</div>
+                                </td>
+                                <td className="p-3">
+                                    <span className={`px-2 py-0.5 rounded text-xs font-bold 
+                                        ${report.type === 'Financial' ? 'bg-blue-50 text-blue-600' : 
+                                          report.type === 'Operational' ? 'bg-green-50 text-green-600' : 'bg-purple-50 text-purple-600'}`}>
+                                        {report.type}
+                                    </span>
+                                </td>
+                                <td className="p-3 text-slate-600 flex items-center gap-2">
+                                    {report.date}
+                                </td>
+                                <td className="p-3">
+                                    <div className="flex items-center gap-1.5">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${report.status === 'Finalized' ? 'bg-green-500' : 'bg-amber-500'}`}></div>
+                                        <span className="text-slate-600">{report.status}</span>
+                                    </div>
+                                </td>
+                                <td className="p-3 text-right">
+                                    <Link to={`/reports/${report.id}`} className="text-blue-600 hover:text-blue-800 font-bold text-xs inline-flex items-center gap-1">
+                                        View <ArrowRight size={12} />
+                                    </Link>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
               </div>
            </div>
 
-           {/* Compliance Center */}
-           <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
+           {/* Compliance Center (Right Sidebar) */}
+           <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm h-fit">
               <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
                   <h3 className="font-bold text-slate-800">Compliance Center</h3>
                   <AIAssistButton prompt="Check for any upcoming compliance risks." />
