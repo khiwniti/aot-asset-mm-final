@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "env": {
+    "LIVEKIT_URL": "@livekit_url",
+    "LIVEKIT_API_KEY": "@livekit_api_key",
+    "LIVEKIT_API_SECRET": "@livekit_api_secret",
+    "OPENAI_API_KEY": "@openai_api_key",
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "src/index.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  }
+}

@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882"
+    environment:
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      - livekit
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/api:/app/api
+    command: npm run dev
+
+  agent:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      - livekit
+    volumes:
+      - ./backend/agents:/app
+    command: python agent.py start
+
+volumes:
+  livekit-data:
